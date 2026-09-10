@@ -28,8 +28,8 @@ export function getBackendUrl() {
     return window.location.origin;
   }
 
-  // 4. Default for static hosting (GitHub Pages / Vercel without custom backend set)
-  return '';
+  // 4. Default production cloud backend for all staff mobile devices
+  return 'https://falcon-emergency-roll-call.onrender.com';
 }
 
 export function setBackendUrl(url) {
