@@ -11,6 +11,8 @@ const STORAGE_KEY_ACTIVE_INCIDENT = 'emergency_active_incident';
 const STORAGE_KEY_ROSTER = 'emergency_roster_state';
 const STORAGE_KEY_HISTORY = 'emergency_incident_history';
 const STORAGE_KEY_CUSTOM_STAFF = 'emergency_custom_staff';
+const STORAGE_KEY_DIR_VERSION = 'emergency_directory_version';
+const CURRENT_DIRECTORY_VERSION = 'v3_falcon_76_official';
 
 // Helper to compute stats from roster
 function computeStats(rosterList, musterList) {
@@ -52,6 +54,20 @@ function computeStats(rosterList, musterList) {
 }
 
 export function IncidentProvider({ children }) {
+  // Clear any legacy demo data cache so all phones receive the new 76 official staff list
+  if (typeof window !== 'undefined') {
+    try {
+      const ver = localStorage.getItem(STORAGE_KEY_DIR_VERSION);
+      if (ver !== CURRENT_DIRECTORY_VERSION) {
+        localStorage.removeItem(STORAGE_KEY_CUSTOM_STAFF);
+        localStorage.removeItem(STORAGE_KEY_ROSTER);
+        localStorage.removeItem(STORAGE_KEY_ACTIVE_INCIDENT);
+        localStorage.removeItem(STORAGE_KEY_USER);
+        localStorage.setItem(STORAGE_KEY_DIR_VERSION, CURRENT_DIRECTORY_VERSION);
+      }
+    } catch {}
+  }
+
   // Pre-seed with bundled data or saved custom staff
   const [musterPoints, setMusterPoints] = useState(DEFAULT_MUSTER_POINTS);
   const [staffDirectory, setStaffDirectory] = useState(() => {

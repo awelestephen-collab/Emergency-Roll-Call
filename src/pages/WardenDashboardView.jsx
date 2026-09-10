@@ -55,14 +55,14 @@ export function WardenDashboardView() {
   // Form states for declare
   const [declareType, setDeclareType] = useState('Fire Evacuation');
   const [declaredBy, setDeclaredBy] = useState(
-    currentUser ? `${currentUser.name} (${currentUser.role || 'Safety Warden'})` : 'Sarah Jenkins (Chief Safety Warden)'
+    currentUser ? `${currentUser.name} (${currentUser.role || 'Safety Warden'})` : 'Morolake Odusi (Manager, HSEQ)'
   );
   const [declareNotes, setDeclareNotes] = useState('');
   const [isDrill, setIsDrill] = useState(false);
 
   // Form state for all clear
   const [closedBy, setClosedBy] = useState(
-    currentUser ? `${currentUser.name} (${currentUser.role || 'Safety Warden'})` : 'Sarah Jenkins (Chief Safety Warden)'
+    currentUser ? `${currentUser.name} (${currentUser.role || 'Safety Warden'})` : 'Morolake Odusi (Manager, HSEQ)'
   );
   const [finalNotes, setFinalNotes] = useState('');
 
