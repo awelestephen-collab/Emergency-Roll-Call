@@ -24,6 +24,40 @@
       "timestamp": "2026-09-10T14:47:36.216Z",
       "verifiedBy": "Marcus Vance",
       "notes": ""
+    },
+    "EMP-001": {
+      "staffId": "EMP-001",
+      "staffName": "Sarah Jenkins",
+      "department": "Executive & Safety",
+      "role": "Chief Safety Warden",
+      "officeLocation": "Building 1 - Floor 4 (Room 402)",
+      "phone": "+1 (555) 234-5678",
+      "musterPointId": "MUSTER-A",
+      "musterPointName": "Muster Point A - North Car Park",
+      "status": "MANUAL_SIGHT_CONFIRMED",
+      "checkInMethod": "WARDEN_SIGHT",
+      "gpsStatus": "UNVERIFIED",
+      "distanceMeters": null,
+      "timestamp": "2026-09-10T14:48:02.918Z",
+      "verifiedBy": "Warden Sight Confirmation",
+      "notes": "Confirmed physically present at muster station by on-duty warden."
+    },
+    "EMP-003": {
+      "staffId": "EMP-003",
+      "staffName": "Elena Rostova",
+      "department": "Software Engineering",
+      "role": "Lead Architect",
+      "officeLocation": "Building 1 - Floor 3 (Open Bay 3B)",
+      "phone": "+1 (555) 456-7890",
+      "musterPointId": "MUSTER-A",
+      "musterPointName": "Muster Point A - North Car Park",
+      "status": "MANUAL_SIGHT_CONFIRMED",
+      "checkInMethod": "WARDEN_SIGHT",
+      "gpsStatus": "UNVERIFIED",
+      "distanceMeters": null,
+      "timestamp": "2026-09-10T14:48:09.131Z",
+      "verifiedBy": "Warden Sight Confirmation",
+      "notes": "Confirmed physically present at muster station by on-duty warden."
     }
   },
   "timeline": [
@@ -38,6 +72,20 @@
       "staffId": "EMP-002",
       "staffName": "Marcus Vance",
       "description": "Marcus Vance checked in as SAFE at Muster Point A - North Car Park (SELF_APP)"
+    },
+    {
+      "timestamp": "2026-09-10T14:48:02.918Z",
+      "action": "CHECK_IN",
+      "staffId": "EMP-001",
+      "staffName": "Sarah Jenkins",
+      "description": "Sarah Jenkins checked in as MANUAL_SIGHT_CONFIRMED at Muster Point A - North Car Park (WARDEN_SIGHT)"
+    },
+    {
+      "timestamp": "2026-09-10T14:48:09.131Z",
+      "action": "CHECK_IN",
+      "staffId": "EMP-003",
+      "staffName": "Elena Rostova",
+      "description": "Elena Rostova checked in as MANUAL_SIGHT_CONFIRMED at Muster Point A - North Car Park (WARDEN_SIGHT)"
     }
   ]
 }
