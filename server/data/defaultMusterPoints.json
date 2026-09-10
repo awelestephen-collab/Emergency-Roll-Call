@@ -1,8 +1,8 @@
 [
   {
     "id": "MUSTER-A",
-    "name": "Muster Point A - North Car Park",
-    "description": "Primary assembly for Floors 3 & 4 (Stairwell A exit)",
+    "name": "Muster Point A",
+    "description": "Designated Primary Evacuation Assembly Point",
     "latitude": 37.7749,
     "longitude": -122.4194,
     "radiusMeters": 100,
@@ -11,8 +11,8 @@
   },
   {
     "id": "MUSTER-B",
-    "name": "Muster Point B - South Recreational Lawn",
-    "description": "Primary assembly for Floors 1 & 2 (Stairwell B & Cafeteria exit)",
+    "name": "Muster Point B",
+    "description": "Designated Secondary Evacuation Assembly Point",
     "latitude": 37.7738,
     "longitude": -122.4185,
     "radiusMeters": 100,
@@ -21,8 +21,8 @@
   },
   {
     "id": "MUSTER-C",
-    "name": "Muster Point C - West Plaza Fountain",
-    "description": "Alternate overflow muster point / Basement & Loading Dock exit",
+    "name": "Muster Point C",
+    "description": "Designated Alternate Overflow Assembly Point",
     "latitude": 37.7755,
     "longitude": -122.4210,
     "radiusMeters": 100,

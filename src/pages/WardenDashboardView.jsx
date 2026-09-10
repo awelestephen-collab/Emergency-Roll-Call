@@ -412,7 +412,7 @@ export function WardenDashboardView() {
               }`}
             >
               <MapPin className="w-3.5 h-3.5" />
-              <span>{mp.name.split(' - ')[0]}</span>
+              <span>{mp.name}</span>
               <span className="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-200">
                 {count}
               </span>

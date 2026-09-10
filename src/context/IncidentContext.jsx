@@ -76,7 +76,24 @@ export function IncidentProvider({ children }) {
   const [roster, setRoster] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_ROSTER);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.map(person => {
+          if (person.checkIn?.musterPointId) {
+            const mp = DEFAULT_MUSTER_POINTS.find(m => m.id === person.checkIn.musterPointId);
+            if (mp) {
+              return {
+                ...person,
+                checkIn: {
+                  ...person.checkIn,
+                  musterPointName: mp.name
+                }
+              };
+            }
+          }
+          return person;
+        });
+      }
     } catch {}
     let initialStaff = DEFAULT_STAFF;
     try {
