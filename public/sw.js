@@ -1,5 +1,5 @@
 // Service Worker for Emergency Roll Call PWA
-const CACHE_NAME = 'emergency-roll-call-v3';
+const CACHE_NAME = 'emergency-roll-call-v5';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -36,11 +36,37 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Do not cache API or socket.io calls
-  if (event.request.url.includes('/api/') || event.request.url.includes('/socket.io/')) {
+  // Do not intercept or cache API, socket.io, or non-GET requests
+  if (
+    event.request.url.includes('/api/') ||
+    event.request.url.includes('/socket.io/') ||
+    event.request.method !== 'GET'
+  ) {
     return;
   }
 
+  // Network-First for Navigation (HTML pages): Always get freshest app when online
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // Offline fallback
+          return caches.match(event.request).then((cached) => {
+            return cached || caches.match(self.registration.scope + 'index.html') || caches.match(self.registration.scope);
+          });
+        })
+    );
+    return;
+  }
+
+  // Cache-First with Network Fallback for static assets (hashed JS, CSS, images)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -54,11 +80,6 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => {
-        // Fallback to cached index.html for navigation
-        if (event.request.mode === 'navigate') {
-          return caches.match(self.registration.scope + 'index.html') || caches.match(self.registration.scope);
-        }
       });
     })
   );

@@ -16,19 +16,7 @@ export function getBackendUrl() {
     return import.meta.env.VITE_BACKEND_URL.trim().replace(/\/+$/, '');
   }
 
-  // 3. If running locally or on local IP network
-  if (
-    typeof window !== 'undefined' && (
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.startsWith('192.168.') ||
-      window.location.hostname.startsWith('10.')
-    )
-  ) {
-    return window.location.origin;
-  }
-
-  // 4. Default production cloud backend for all staff mobile devices
+  // 3. Default production cloud hub for all devices (PC, Android, iOS) to guarantee real-time sync
   return 'https://falcon-emergency-roll-call.onrender.com';
 }
 
