@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import fs from 'fs';
+
 import { createIncidentsRouter } from './routes/incidents.js';
 import { createCheckInRouter } from './routes/checkin.js';
 import { createReportsRouter } from './routes/reports.js';
@@ -40,6 +42,19 @@ app.use('/api/reports', createReportsRouter());
 // Serve static frontend build if dist folder exists
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
+
+// Fallback all other GET routes to index.html for SPA routing
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+    return next();
+  }
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    next();
+  }
+});
 
 // SharePoint sync status endpoint
 app.get('/api/sharepoint/status', (req, res) => {

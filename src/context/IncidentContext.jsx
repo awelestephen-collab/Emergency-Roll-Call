@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { io } from 'socket.io-client';
 import { soundSynthesizer } from '../components/AudioAlarm';
 import { DEFAULT_STAFF, DEFAULT_MUSTER_POINTS, DEFAULT_HISTORICAL_DRILL } from '../data/initialData';
+import { getBackendUrl, getApiUrl } from '../config/api';
 
 const IncidentContext = createContext(null);
 
@@ -213,14 +214,18 @@ export function IncidentProvider({ children }) {
     }
   }, []);
 
-  // Socket.io initialization with silent failover for GitHub Pages
+  // Socket.io initialization with silent failover for GitHub Pages and custom cloud hubs
   useEffect(() => {
     try {
-      const socket = io({
-        reconnectionAttempts: 3,
+      const backend = getBackendUrl();
+      const socketOptions = {
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 2000,
-        timeout: 3000
-      });
+        timeout: 5000,
+        transports: ['websocket', 'polling']
+      };
+
+      const socket = backend ? io(backend, socketOptions) : io(socketOptions);
       socketRef.current = socket;
 
       socket.on('connect', () => {
@@ -253,19 +258,23 @@ export function IncidentProvider({ children }) {
         socket.disconnect();
       };
     } catch (e) {
-      // Socket failed (expected on static GitHub Pages)
+      // Socket failed (expected on static host without custom backend configured)
     }
   }, [applySummary]);
 
-  // Try fetching from backend if available, but keep bundled data if it fails
+  // Fetch from backend if available and keep in sync with polling backup
   useEffect(() => {
+    let isMounted = true;
+
     async function loadBackendData() {
       try {
         const [activeRes, pointsRes, staffRes] = await Promise.all([
-          fetch('/api/incidents/active').catch(() => null),
-          fetch('/api/incidents/muster-points').catch(() => null),
-          fetch('/api/incidents/staff').catch(() => null)
+          fetch(getApiUrl('/api/incidents/active')).catch(() => null),
+          fetch(getApiUrl('/api/incidents/muster-points')).catch(() => null),
+          fetch(getApiUrl('/api/incidents/staff')).catch(() => null)
         ]);
+
+        if (!isMounted) return;
 
         if (activeRes && activeRes.ok) {
           const summary = await activeRes.json();
@@ -283,7 +292,25 @@ export function IncidentProvider({ children }) {
         // Static host fallback - bundled data is already loaded!
       }
     }
+
     loadBackendData();
+
+    // Dual-layer polling backup every 4 seconds to guarantee all devices stay in sync
+    const pollInterval = setInterval(() => {
+      fetch(getApiUrl('/api/incidents/active'))
+        .then(res => res.ok ? res.json() : null)
+        .then(summary => {
+          if (summary && isMounted) {
+            applySummary(summary);
+          }
+        })
+        .catch(() => {});
+    }, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+    };
   }, [applySummary]);
 
   // Escalation timer
@@ -376,7 +403,7 @@ export function IncidentProvider({ children }) {
 
     // Try sending to backend if available
     try {
-      const res = await fetch('/api/checkin', {
+      const res = await fetch(getApiUrl('/api/checkin'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -420,7 +447,7 @@ export function IncidentProvider({ children }) {
     const now = new Date().toISOString();
 
     try {
-      const res = await fetch('/api/checkin/warden-override', {
+      const res = await fetch(getApiUrl('/api/checkin/warden-override'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staffId, musterPointId, status, verifiedBy, notes })
@@ -480,7 +507,7 @@ export function IncidentProvider({ children }) {
     };
 
     try {
-      const res = await fetch('/api/incidents/declare', {
+      const res = await fetch(getApiUrl('/api/incidents/declare'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, declaredBy, notes, simulatedDrill, escalationThresholdSeconds })
@@ -530,7 +557,7 @@ export function IncidentProvider({ children }) {
     };
 
     try {
-      const res = await fetch('/api/incidents/all-clear', {
+      const res = await fetch(getApiUrl('/api/incidents/all-clear'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ closedBy, finalNotes })

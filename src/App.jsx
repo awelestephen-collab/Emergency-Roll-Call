@@ -4,6 +4,7 @@ import { StaffCheckInView } from './pages/StaffCheckInView';
 import { WardenDashboardView } from './pages/WardenDashboardView';
 import { IncidentHistoryView } from './pages/IncidentHistoryView';
 import { InstallModal } from './components/InstallModal';
+import { ServerConfigModal } from './components/ServerConfigModal';
 import {
   ShieldAlert,
   Users,
@@ -20,6 +21,7 @@ import {
 function AppContent() {
   const [activeTab, setActiveTab] = useState('checkin'); // 'checkin', 'warden', 'history'
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showServerModal, setShowServerModal] = useState(false);
 
   const {
     activeIncident,
@@ -85,26 +87,40 @@ function AppContent() {
             </button>
 
             {/* Connectivity Badge */}
-            <div
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-medium border ${
+            <button
+              onClick={() => setShowServerModal(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-medium border transition-colors cursor-pointer ${
                 isOnline && socketConnected
-                  ? 'bg-slate-900 border-slate-800 text-slate-300'
-                  : 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                  : isOnline
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+                  : 'bg-red-500/10 border-red-500/30 text-red-400'
               }`}
-              title={isOnline ? 'Real-time WebSocket Sync Connected' : 'Offline Mode (Local Queueing Active)'}
+              title={
+                isOnline && socketConnected
+                  ? 'Live Server Hub Connected • Real-time Sync Active (Click to view)'
+                  : isOnline
+                  ? 'Standalone Mode (No Cloud Hub Connected) • Click to connect server'
+                  : 'Offline Mode • Local Queueing Active'
+              }
             >
-              {isOnline ? (
+              {isOnline && socketConnected ? (
                 <>
                   <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="hidden md:inline">Sync Live</span>
+                  <span className="hidden sm:inline">Sync Live</span>
+                </>
+              ) : isOnline ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  <span className="hidden sm:inline">Standalone</span>
                 </>
               ) : (
                 <>
-                  <WifiOff className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                  <span>Offline</span>
+                  <WifiOff className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                  <span className="hidden sm:inline">Offline</span>
                 </>
               )}
-            </div>
+            </button>
 
             {/* Install on Phone Button */}
             <button
@@ -178,6 +194,13 @@ function AppContent() {
 
       {/* INSTALL ON PHONE MODAL */}
       <InstallModal isOpen={showInstallModal} onClose={() => setShowInstallModal(false)} />
+
+      {/* CLOUD SERVER SYNC MODAL */}
+      <ServerConfigModal
+        isOpen={showServerModal}
+        onClose={() => setShowServerModal(false)}
+        isConnected={socketConnected}
+      />
     </div>
   );
 }

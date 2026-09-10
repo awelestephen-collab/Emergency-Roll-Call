@@ -14,6 +14,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
+import { getApiUrl } from '../config/api';
+
 export function IncidentHistoryView() {
   const { staffDirectory, roster } = useIncident();
   const [history, setHistory] = useState([]);
@@ -22,7 +24,7 @@ export function IncidentHistoryView() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('/api/incidents/history');
+      const res = await fetch(getApiUrl('/api/incidents/history'));
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
