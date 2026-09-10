@@ -10,10 +10,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 );
 
 // Register service worker for PWA installability and offline support
-if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
+    const swPath = (import.meta.env.BASE_URL || './') + 'sw.js';
+    navigator.serviceWorker.register(swPath).then((reg) => {
+      console.log('Emergency Roll Call SW registered:', reg.scope);
+    }).catch((err) => {
       console.warn('Service worker registration failed:', err);
     });
   });
 }
+
