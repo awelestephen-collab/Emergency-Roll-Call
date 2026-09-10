@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useIncident } from '../context/IncidentContext';
 import { downloadClientPdf, downloadClientExcel } from '../utils/clientReports';
+import { StaffManagerModal } from '../components/StaffManagerModal';
 import {
   ShieldAlert,
   CheckCircle2,
@@ -48,6 +49,7 @@ export function WardenDashboardView() {
   const [showDeclareModal, setShowDeclareModal] = useState(false);
   const [showAllClearModal, setShowAllClearModal] = useState(false);
   const [showManifestModal, setShowManifestModal] = useState(false);
+  const [showStaffModal, setShowStaffModal] = useState(false);
 
   // Form states for declare
   const [declareType, setDeclareType] = useState('Fire Evacuation');
@@ -184,6 +186,15 @@ export function WardenDashboardView() {
 
         {/* Global Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setShowStaffModal(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors shadow"
+            title="Add, import, or manage organization staff members"
+          >
+            <Users className="w-4 h-4 text-red-400" />
+            <span>Manage Staff</span>
+          </button>
+
           {activeIncident ? (
             <>
               <button
@@ -816,6 +827,12 @@ export function WardenDashboardView() {
           </div>
         </div>
       )}
+
+      {/* Staff Manager Modal */}
+      <StaffManagerModal
+        isOpen={showStaffModal}
+        onClose={() => setShowStaffModal(false)}
+      />
     </div>
   );
 }

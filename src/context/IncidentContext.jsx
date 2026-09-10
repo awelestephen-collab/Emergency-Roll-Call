@@ -10,6 +10,7 @@ const STORAGE_KEY_OFFLINE_QUEUE = 'emergency_offline_checkins';
 const STORAGE_KEY_ACTIVE_INCIDENT = 'emergency_active_incident';
 const STORAGE_KEY_ROSTER = 'emergency_roster_state';
 const STORAGE_KEY_HISTORY = 'emergency_incident_history';
+const STORAGE_KEY_CUSTOM_STAFF = 'emergency_custom_staff';
 
 // Helper to compute stats from roster
 function computeStats(rosterList, musterList) {
@@ -51,9 +52,15 @@ function computeStats(rosterList, musterList) {
 }
 
 export function IncidentProvider({ children }) {
-  // Pre-seed with bundled data so it NEVER shows empty on GitHub Pages
+  // Pre-seed with bundled data or saved custom staff
   const [musterPoints, setMusterPoints] = useState(DEFAULT_MUSTER_POINTS);
-  const [staffDirectory, setStaffDirectory] = useState(DEFAULT_STAFF);
+  const [staffDirectory, setStaffDirectory] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_CUSTOM_STAFF);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_STAFF;
+  });
 
   // Active incident initialized from localStorage or null
   const [activeIncident, setActiveIncident] = useState(() => {
@@ -65,13 +72,18 @@ export function IncidentProvider({ children }) {
     }
   });
 
-  // Roster initialized from localStorage or default
+  // Roster initialized from localStorage or default staff
   const [roster, setRoster] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_ROSTER);
       if (saved) return JSON.parse(saved);
     } catch {}
-    return DEFAULT_STAFF.map(s => ({
+    let initialStaff = DEFAULT_STAFF;
+    try {
+      const savedStaff = localStorage.getItem(STORAGE_KEY_CUSTOM_STAFF);
+      if (savedStaff) initialStaff = JSON.parse(savedStaff);
+    } catch {}
+    return initialStaff.map(s => ({
       ...s,
       status: 'UNACCOUNTED',
       checkIn: null
@@ -79,16 +91,28 @@ export function IncidentProvider({ children }) {
   });
 
   // Stats
-  const [stats, setStats] = useState(() => computeStats(
-    DEFAULT_STAFF.map(s => ({ ...s, status: 'UNACCOUNTED', checkIn: null })),
-    DEFAULT_MUSTER_POINTS
-  ));
+  const [stats, setStats] = useState(() => {
+    let initialStaff = DEFAULT_STAFF;
+    try {
+      const savedRoster = localStorage.getItem(STORAGE_KEY_ROSTER);
+      if (savedRoster) return computeStats(JSON.parse(savedRoster), DEFAULT_MUSTER_POINTS);
+      const savedStaff = localStorage.getItem(STORAGE_KEY_CUSTOM_STAFF);
+      if (savedStaff) initialStaff = JSON.parse(savedStaff);
+    } catch {}
+    return computeStats(
+      initialStaff.map(s => ({ ...s, status: 'UNACCOUNTED', checkIn: null })),
+      DEFAULT_MUSTER_POINTS
+    );
+  });
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const savedId = localStorage.getItem(STORAGE_KEY_USER);
       if (savedId) {
-        return DEFAULT_STAFF.find(s => s.id === savedId) || null;
+        let staffList = DEFAULT_STAFF;
+        const savedStaff = localStorage.getItem(STORAGE_KEY_CUSTOM_STAFF);
+        if (savedStaff) staffList = JSON.parse(savedStaff);
+        return staffList.find(s => s.id === savedId) || null;
       }
     } catch {}
     return null;
@@ -495,6 +519,113 @@ export function IncidentProvider({ children }) {
     return closedRecord;
   };
 
+  // Directory management methods
+  const addStaffMember = (person) => {
+    setStaffDirectory(prev => {
+      const updated = [person, ...prev];
+      try {
+        localStorage.setItem(STORAGE_KEY_CUSTOM_STAFF, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    setRoster(prev => {
+      const updated = [
+        {
+          ...person,
+          status: 'UNACCOUNTED',
+          checkIn: null
+        },
+        ...prev
+      ];
+      try {
+        localStorage.setItem(STORAGE_KEY_ROSTER, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const deleteStaffMember = (id) => {
+    setStaffDirectory(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      try {
+        localStorage.setItem(STORAGE_KEY_CUSTOM_STAFF, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    setRoster(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      try {
+        localStorage.setItem(STORAGE_KEY_ROSTER, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    if (currentUser && currentUser.id === id) {
+      selectCurrentUser(null);
+    }
+  };
+
+  const importStaffList = (importedList, replace = false) => {
+    if (!Array.isArray(importedList) || importedList.length === 0) return;
+
+    let updatedDirectory;
+    if (replace) {
+      updatedDirectory = importedList;
+    } else {
+      const existingNames = new Set(staffDirectory.map(s => s.name.toLowerCase()));
+      const filtered = importedList.filter(s => !existingNames.has(s.name.toLowerCase()));
+      updatedDirectory = [...staffDirectory, ...filtered];
+    }
+
+    setStaffDirectory(updatedDirectory);
+    try {
+      localStorage.setItem(STORAGE_KEY_CUSTOM_STAFF, JSON.stringify(updatedDirectory));
+    } catch {}
+
+    setRoster(prev => {
+      let updatedRoster;
+      if (replace) {
+        updatedRoster = updatedDirectory.map(s => ({
+          ...s,
+          status: 'UNACCOUNTED',
+          checkIn: null
+        }));
+      } else {
+        const existingIds = new Set(prev.map(p => p.id));
+        const newRosterItems = updatedDirectory
+          .filter(s => !existingIds.has(s.id))
+          .map(s => ({
+            ...s,
+            status: 'UNACCOUNTED',
+            checkIn: null
+          }));
+        updatedRoster = [...prev, ...newRosterItems];
+      }
+
+      try {
+        localStorage.setItem(STORAGE_KEY_ROSTER, JSON.stringify(updatedRoster));
+      } catch {}
+      return updatedRoster;
+    });
+  };
+
+  const resetStaffDirectory = () => {
+    localStorage.removeItem(STORAGE_KEY_CUSTOM_STAFF);
+    setStaffDirectory(DEFAULT_STAFF);
+    const resetRoster = DEFAULT_STAFF.map(s => ({
+      ...s,
+      status: 'UNACCOUNTED',
+      checkIn: null
+    }));
+    setRoster(resetRoster);
+    try {
+      localStorage.setItem(STORAGE_KEY_ROSTER, JSON.stringify(resetRoster));
+    } catch {}
+    selectCurrentUser(null);
+  };
+
   return (
     <IncidentContext.Provider
       value={{
@@ -517,7 +648,11 @@ export function IncidentProvider({ children }) {
         submitSelfCheckIn,
         submitWardenOverride,
         declareEmergency,
-        issueAllClear
+        issueAllClear,
+        addStaffMember,
+        deleteStaffMember,
+        importStaffList,
+        resetStaffDirectory
       }}
     >
       {children}
