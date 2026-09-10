@@ -3,14 +3,12 @@ import { IncidentProvider, useIncident } from './context/IncidentContext';
 import { StaffCheckInView } from './pages/StaffCheckInView';
 import { WardenDashboardView } from './pages/WardenDashboardView';
 import { IncidentHistoryView } from './pages/IncidentHistoryView';
-import { M365IntegrationView } from './pages/M365IntegrationView';
 import { InstallModal } from './components/InstallModal';
 import {
   ShieldAlert,
   Users,
   LayoutDashboard,
   History,
-  Layers,
   Volume2,
   VolumeX,
   Wifi,
@@ -20,7 +18,7 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState('checkin'); // 'checkin', 'warden', 'history', 'm365'
+  const [activeTab, setActiveTab] = useState('checkin'); // 'checkin', 'warden', 'history'
   const [showInstallModal, setShowInstallModal] = useState(false);
 
   const {
@@ -160,18 +158,6 @@ function AppContent() {
             <History className="w-4 h-4 text-slate-400" />
             <span>Safety Audit Logs</span>
           </button>
-
-          <button
-            onClick={() => setActiveTab('m365')}
-            className={`py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 whitespace-nowrap transition-all ${
-              activeTab === 'm365'
-                ? 'border-blue-500 text-white bg-slate-800/50'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Layers className="w-4 h-4 text-blue-400" />
-            <span>SharePoint & Power Apps</span>
-          </button>
         </div>
       </header>
 
@@ -180,14 +166,13 @@ function AppContent() {
         {activeTab === 'checkin' && <StaffCheckInView />}
         {activeTab === 'warden' && <WardenDashboardView />}
         {activeTab === 'history' && <IncidentHistoryView />}
-        {activeTab === 'm365' && <M365IntegrationView />}
       </main>
 
       {/* COMPLIANCE FOOTER */}
       <footer className="bg-slate-950 border-t border-slate-900 py-3 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Enterprise Emergency Evacuation & Roll Call System • Safety Compliance Edition</span>
-          <span>Zero-Friction Fast Mobile Access • SharePoint / M365 Interoperable</span>
+          <span>Enterprise Emergency Evacuation & Roll Call System • Life Safety Edition</span>
+          <span>Zero-Friction Fast Mobile Access • PWA Standalone Ready</span>
         </div>
       </footer>
 
