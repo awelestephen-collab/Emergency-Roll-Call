@@ -198,15 +198,17 @@ export function StaffCheckInView() {
             <span>Staff Member Identification</span>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsStaffModalOpen(true)}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700 shadow-sm"
-              title="Add or import organization staff into the directory"
-            >
-              <UserPlus className="w-3.5 h-3.5 text-red-400" />
-              <span>Add / Import Staff</span>
-            </button>
+            {currentUser?.isWarden && (
+              <button
+                type="button"
+                onClick={() => setIsStaffModalOpen(true)}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700 shadow-sm"
+                title="Add or import organization staff into the directory"
+              >
+                <UserPlus className="w-3.5 h-3.5 text-red-400" />
+                <span>Add / Import Staff</span>
+              </button>
+            )}
             {currentUser && (
               <button
                 type="button"
@@ -260,14 +262,16 @@ export function StaffCheckInView() {
               {filteredStaff.length === 0 ? (
                 <div className="text-xs text-slate-400 p-4 text-center space-y-2 bg-slate-950/50 rounded-xl border border-dashed border-slate-800">
                   <p>No staff found matching "{searchQuery}"</p>
-                  <button
-                    type="button"
-                    onClick={() => setIsStaffModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white text-xs font-semibold rounded-lg border border-red-500/30 transition-colors"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>+ Add to Staff Directory</span>
-                  </button>
+                  {currentUser?.isWarden && (
+                    <button
+                      type="button"
+                      onClick={() => setIsStaffModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white text-xs font-semibold rounded-lg border border-red-500/30 transition-colors"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>+ Add to Staff Directory</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 filteredStaff.map((staff) => (
