@@ -38,7 +38,8 @@ export function WardenDashboardView() {
     toggleSiren,
     submitWardenOverride,
     declareEmergency,
-    issueAllClear
+    issueAllClear,
+    currentUser
   } = useIncident();
 
   const [activeMusterTab, setActiveMusterTab] = useState('ALL');
@@ -53,12 +54,16 @@ export function WardenDashboardView() {
 
   // Form states for declare
   const [declareType, setDeclareType] = useState('Fire Evacuation');
-  const [declaredBy, setDeclaredBy] = useState('Sarah Jenkins (Chief Safety Warden)');
+  const [declaredBy, setDeclaredBy] = useState(
+    currentUser ? `${currentUser.name} (${currentUser.role || 'Safety Warden'})` : 'Sarah Jenkins (Chief Safety Warden)'
+  );
   const [declareNotes, setDeclareNotes] = useState('');
   const [isDrill, setIsDrill] = useState(false);
 
   // Form state for all clear
-  const [closedBy, setClosedBy] = useState('Sarah Jenkins (Chief Safety Warden)');
+  const [closedBy, setClosedBy] = useState(
+    currentUser ? `${currentUser.name} (${currentUser.role || 'Safety Warden'})` : 'Sarah Jenkins (Chief Safety Warden)'
+  );
   const [finalNotes, setFinalNotes] = useState('');
 
   // Format timer MM:SS

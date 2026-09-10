@@ -66,19 +66,27 @@ export function StaffCheckInView() {
       return;
     }
 
+    // Check if an emergency or drill is active
+    if (!activeIncident) {
+      if (currentUser.isWarden) {
+        await declareEmergency({
+          type: 'Practice Evacuation Drill',
+          declaredBy: `${currentUser.name} (Safety Warden)`,
+          simulatedDrill: true
+        });
+      } else {
+        setFeedback({
+          type: 'warning',
+          text: 'Normal Standby: No evacuation incident or practice drill is currently active. Only designated Safety Wardens can start a drill.'
+        });
+        return;
+      }
+    }
+
     setSubmitting(true);
     setFeedback(null);
 
     try {
-      // If no emergency is currently active, start an evacuation practice drill automatically
-      if (!activeIncident) {
-        await declareEmergency({
-          type: 'Practice Evacuation Drill',
-          declaredBy: `${currentUser.name} (Mobile Drill Test)`,
-          simulatedDrill: true
-        });
-      }
-
       const res = await submitSelfCheckIn({
         staffId: currentUser.id,
         musterPointId: selectedMusterId || musterPoints[0]?.id || 'MUSTER-A',
@@ -157,21 +165,28 @@ export function StaffCheckInView() {
             <div>
               <h2 className="text-base font-bold text-slate-100">Normal Standby Status</h2>
               <p className="text-xs text-slate-400">
-                System ready. Select your name below to link this phone, or tap to start a drill.
+                {!currentUser
+                  ? "System ready on standby. Select your name below to link this device."
+                  : currentUser.isWarden
+                  ? "System ready. As a designated Safety Warden, you can start an evacuation practice drill below."
+                  : "System ready on standby. You will be alerted immediately when an evacuation or drill is declared."}
               </p>
             </div>
           </div>
-          <button
-            onClick={() => declareEmergency({
-              type: 'Practice Evacuation Drill',
-              declaredBy: currentUser ? currentUser.name : 'Safety Warden',
-              simulatedDrill: true
-            })}
-            className="px-3.5 py-2 bg-red-600/30 hover:bg-red-600 text-red-200 hover:text-white border border-red-500/50 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 shadow"
-          >
-            <Flame className="w-3.5 h-3.5 text-red-400" />
-            <span>Start Practice Drill</span>
-          </button>
+          {currentUser?.isWarden && (
+            <button
+              type="button"
+              onClick={() => declareEmergency({
+                type: 'Practice Evacuation Drill',
+                declaredBy: `${currentUser.name} (Safety Warden)`,
+                simulatedDrill: true
+              })}
+              className="px-3.5 py-2 bg-red-600/30 hover:bg-red-600 text-red-200 hover:text-white border border-red-500/50 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 shadow"
+            >
+              <Flame className="w-3.5 h-3.5 text-red-400" />
+              <span>Start Practice Drill</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -364,14 +379,24 @@ export function StaffCheckInView() {
           <button
             onClick={() => handleCheckIn('SAFE')}
             disabled={submitting}
-            className="w-full py-6 px-6 rounded-2xl text-xl sm:text-2xl font-black text-white shadow-2xl transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 glow-green"
+            className={`w-full py-6 px-6 rounded-2xl text-xl sm:text-2xl font-black text-white shadow-2xl transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1.5 ${
+              activeIncident
+                ? 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 glow-green'
+                : currentUser?.isWarden
+                ? 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 glow-green'
+                : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700'
+            }`}
           >
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-8 h-8" />
+              <CheckCircle2 className={`w-8 h-8 ${activeIncident || currentUser?.isWarden ? 'text-white' : 'text-emerald-500'}`} />
               <span>I AM SAFE / PRESENT</span>
             </div>
-            <span className="text-xs font-normal text-emerald-100 opacity-90 tracking-normal">
-              {activeIncident ? '1-Tap Instant Roll Call Confirmation' : 'Tap to Confirm Presence'}
+            <span className="text-xs font-normal text-slate-300 opacity-90 tracking-normal">
+              {activeIncident
+                ? '1-Tap Instant Roll Call Confirmation'
+                : currentUser?.isWarden
+                ? 'Warden: Tap to start drill & confirm presence'
+                : 'Standby Mode — active during evacuations & drills'}
             </span>
           </button>
         )}
