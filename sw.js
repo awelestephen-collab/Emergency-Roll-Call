@@ -1,15 +1,15 @@
 // Service Worker for Emergency Roll Call PWA
-const CACHE_NAME = 'emergency-roll-call-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+const CACHE_NAME = 'emergency-roll-call-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      const scope = self.registration.scope;
+      return cache.addAll([
+        scope,
+        scope + 'index.html',
+        scope + 'manifest.json'
+      ]);
     })
   );
   self.skipWaiting();
@@ -52,7 +52,7 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => {
         // Fallback to cached index.html for navigation
         if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
+          return caches.match(self.registration.scope + 'index.html') || caches.match(self.registration.scope);
         }
       });
     })
