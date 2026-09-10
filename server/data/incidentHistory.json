@@ -1,0 +1,190 @@
+[
+  {
+    "id": "INC-744397",
+    "type": "Fire Alarm Live Drill",
+    "declaredAt": "2026-09-10T14:32:24.397Z",
+    "allClearAt": "2026-09-10T14:32:24.473Z",
+    "durationSeconds": 1,
+    "declaredBy": "Chief Warden",
+    "closedBy": "Fire Marshal",
+    "isDrill": true,
+    "status": "CLOSED",
+    "totalStaff": 12,
+    "accountedCount": 1,
+    "unaccountedCount": 11,
+    "manualSightCount": 0,
+    "assistanceNeededCount": 0,
+    "notes": "Drill complete",
+    "musterPointBreakdown": {
+      "MUSTER-A": 1,
+      "MUSTER-B": 0,
+      "MUSTER-C": 0
+    },
+    "checkIns": {
+      "EMP-003": {
+        "staffId": "EMP-003",
+        "staffName": "Elena Rostova",
+        "department": "Software Engineering",
+        "role": "Lead Architect",
+        "officeLocation": "Building 1 - Floor 3 (Open Bay 3B)",
+        "phone": "+1 (555) 456-7890",
+        "musterPointId": "MUSTER-A",
+        "musterPointName": "Muster Point A - North Car Park",
+        "status": "SAFE",
+        "checkInMethod": "SELF_APP",
+        "gpsStatus": "UNVERIFIED",
+        "distanceMeters": null,
+        "timestamp": "2026-09-10T14:32:24.461Z",
+        "verifiedBy": "Elena Rostova",
+        "notes": ""
+      }
+    },
+    "timeline": [
+      {
+        "timestamp": "2026-09-10T14:32:24.397Z",
+        "action": "EMERGENCY_DECLARED",
+        "description": "Emergency declared: Fire Alarm Live Drill by Chief Warden. Full building evacuation ordered."
+      },
+      {
+        "timestamp": "2026-09-10T14:32:24.461Z",
+        "action": "CHECK_IN",
+        "staffId": "EMP-003",
+        "staffName": "Elena Rostova",
+        "description": "Elena Rostova checked in as SAFE at Muster Point A - North Car Park (SELF_APP)"
+      },
+      {
+        "timestamp": "2026-09-10T14:32:24.473Z",
+        "action": "ALL_CLEAR_ISSUED",
+        "description": "All clear issued by Fire Marshal. Evacuation session closed."
+      }
+    ]
+  },
+  {
+    "id": "INC-538032",
+    "type": "Simulated Fire Alarm Test",
+    "declaredAt": "2026-09-10T14:28:58.032Z",
+    "allClearAt": "2026-09-10T14:28:58.037Z",
+    "durationSeconds": 1,
+    "declaredBy": "Automated Test Runner",
+    "closedBy": "Fire Marshal / Test Runner",
+    "isDrill": true,
+    "status": "CLOSED",
+    "totalStaff": 12,
+    "accountedCount": 3,
+    "unaccountedCount": 9,
+    "manualSightCount": 1,
+    "assistanceNeededCount": 1,
+    "notes": "Building safely evacuated and verified.",
+    "musterPointBreakdown": {
+      "MUSTER-A": 1,
+      "MUSTER-B": 1,
+      "MUSTER-C": 0
+    },
+    "checkIns": {
+      "EMP-001": {
+        "staffId": "EMP-001",
+        "staffName": "Sarah Jenkins",
+        "department": "Executive & Safety",
+        "role": "Chief Safety Warden",
+        "officeLocation": "Building 1 - Floor 4 (Room 402)",
+        "phone": "+1 (555) 234-5678",
+        "musterPointId": "MUSTER-A",
+        "musterPointName": "Muster Point A - North Car Park",
+        "status": "SAFE",
+        "checkInMethod": "SELF_APP",
+        "gpsStatus": "VERIFIED_ON_SITE",
+        "distanceMeters": 0,
+        "timestamp": "2026-09-10T14:28:58.033Z",
+        "verifiedBy": "Sarah Jenkins",
+        "notes": ""
+      },
+      "EMP-002": {
+        "staffId": "EMP-002",
+        "staffName": "Marcus Vance",
+        "department": "Facilities & Engineering",
+        "role": "Floor 3 Warden",
+        "officeLocation": "Building 1 - Floor 3 (Room 315)",
+        "phone": "+1 (555) 345-6789",
+        "musterPointId": "MUSTER-B",
+        "musterPointName": "Muster Point B - South Recreational Lawn",
+        "status": "MANUAL_SIGHT_CONFIRMED",
+        "checkInMethod": "WARDEN_SIGHT",
+        "gpsStatus": "UNVERIFIED",
+        "distanceMeters": null,
+        "timestamp": "2026-09-10T14:28:58.034Z",
+        "verifiedBy": "Warden Test",
+        "notes": ""
+      },
+      "EMP-003": {
+        "staffId": "EMP-003",
+        "staffName": "Elena Rostova",
+        "department": "Software Engineering",
+        "role": "Lead Architect",
+        "officeLocation": "Building 1 - Floor 3 (Open Bay 3B)",
+        "phone": "+1 (555) 456-7890",
+        "musterPointId": "MUSTER-A",
+        "musterPointName": "Muster Point A - North Car Park",
+        "status": "NEEDS_ASSISTANCE",
+        "checkInMethod": "SELF_APP",
+        "gpsStatus": "UNVERIFIED",
+        "distanceMeters": null,
+        "timestamp": "2026-09-10T14:28:58.036Z",
+        "verifiedBy": "Elena Rostova",
+        "notes": "Minor smoke inhalation near Stairwell A"
+      }
+    },
+    "timeline": [
+      {
+        "timestamp": "2026-09-10T14:28:58.032Z",
+        "action": "EMERGENCY_DECLARED",
+        "description": "Emergency declared: Simulated Fire Alarm Test by Automated Test Runner. Full building evacuation ordered."
+      },
+      {
+        "timestamp": "2026-09-10T14:28:58.033Z",
+        "action": "CHECK_IN",
+        "staffId": "EMP-001",
+        "staffName": "Sarah Jenkins",
+        "description": "Sarah Jenkins checked in as SAFE at Muster Point A - North Car Park (SELF_APP)"
+      },
+      {
+        "timestamp": "2026-09-10T14:28:58.034Z",
+        "action": "CHECK_IN",
+        "staffId": "EMP-002",
+        "staffName": "Marcus Vance",
+        "description": "Marcus Vance checked in as MANUAL_SIGHT_CONFIRMED at Muster Point B - South Recreational Lawn (WARDEN_SIGHT)"
+      },
+      {
+        "timestamp": "2026-09-10T14:28:58.036Z",
+        "action": "ASSISTANCE_REQUESTED",
+        "staffId": "EMP-003",
+        "staffName": "Elena Rostova",
+        "description": "Elena Rostova checked in as NEEDS_ASSISTANCE at Muster Point A - North Car Park (SELF_APP)"
+      },
+      {
+        "timestamp": "2026-09-10T14:28:58.037Z",
+        "action": "ALL_CLEAR_ISSUED",
+        "description": "All clear issued by Fire Marshal / Test Runner. Evacuation session closed."
+      }
+    ]
+  },
+  {
+    "id": "INC-2026-0814-DRILL",
+    "type": "Scheduled Fire Evacuation Drill",
+    "declaredAt": "2026-08-14T10:00:00.000Z",
+    "allClearAt": "2026-08-14T10:07:35.000Z",
+    "durationSeconds": 455,
+    "declaredBy": "Sarah Jenkins (Chief Safety Warden)",
+    "status": "CLOSED",
+    "totalStaff": 12,
+    "accountedCount": 12,
+    "unaccountedCount": 0,
+    "manualSightCount": 2,
+    "assistanceNeededCount": 0,
+    "notes": "Quarterly Q3 Fire Drill. Total clear time: 7m 35s. Good compliance at Muster Point A.",
+    "musterPointBreakdown": {
+      "MUSTER-A": 7,
+      "MUSTER-B": 3,
+      "MUSTER-C": 2
+    }
+  }
+]

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/sharepoint/site-design-script-actions.schema.json",
+  "system": "Emergency Muster & Roll Call System",
+  "version": "1.0",
+  "lists": [
+    {
+      "listName": "Emergency_StaffDirectory",
+      "description": "Organizational headcount directory for evacuation roll-call triage",
+      "template": 100,
+      "fields": [
+        { "name": "Title", "type": "Text", "required": true, "displayName": "Full Name" },
+        { "name": "Email", "type": "Text", "required": true, "displayName": "Staff Email" },
+        { "name": "Department", "type": "Text", "required": true, "displayName": "Department" },
+        { "name": "RoleTitle", "type": "Text", "required": false, "displayName": "Job Title" },
+        { "name": "OfficeLocation", "type": "Text", "required": true, "displayName": "Primary Floor / Office Location" },
+        { "name": "MobileNumber", "type": "Text", "required": true, "displayName": "Emergency Mobile Phone" },
+        { "name": "IsWarden", "type": "Boolean", "required": false, "defaultValue": "0", "displayName": "Designated Safety Warden" }
+      ]
+    },
+    {
+      "listName": "Emergency_Incidents",
+      "description": "Records all live and completed evacuation incidents, alarms, and fire drills",
+      "template": 100,
+      "fields": [
+        { "name": "Title", "type": "Text", "required": true, "displayName": "Incident Identifier (e.g. INC-2026-001)" },
+        { "name": "IncidentType", "type": "Choice", "choices": ["Fire Evacuation", "Active Security Threat", "Hazardous Gas Leak", "Severe Weather", "Evacuation Drill"], "displayName": "Incident Type" },
+        { "name": "IncidentStatus", "type": "Choice", "choices": ["ACTIVE", "CLOSED"], "defaultValue": "ACTIVE", "displayName": "Status" },
+        { "name": "DeclaredAt", "type": "DateTime", "required": true, "displayName": "Evacuation Declared At" },
+        { "name": "AllClearAt", "type": "DateTime", "required": false, "displayName": "All Clear Issued At" },
+        { "name": "DurationSeconds", "type": "Number", "required": false, "displayName": "Total Evacuation Duration (Seconds)" },
+        { "name": "DeclaredBy", "type": "Text", "required": true, "displayName": "Incident Commander" },
+        { "name": "ClosedBy", "type": "Text", "required": false, "displayName": "All-Clear Sign-Off Officer" },
+        { "name": "TotalStaff", "type": "Number", "required": true, "displayName": "Total Building Headcount" },
+        { "name": "AccountedCount", "type": "Number", "required": false, "displayName": "Accounted Safe Count" },
+        { "name": "UnaccountedCount", "type": "Number", "required": false, "displayName": "Unaccounted / Missing Count" },
+        { "name": "IsDrill", "type": "Boolean", "defaultValue": "0", "displayName": "Is Scheduled Drill" },
+        { "name": "DebriefNotes", "type": "Note", "required": false, "displayName": "Safety Compliance & Debrief Notes" }
+      ]
+    },
+    {
+      "listName": "Emergency_CheckIns",
+      "description": "Granular check-in audit log for every individual staff member during an incident",
+      "template": 100,
+      "fields": [
+        { "name": "Title", "type": "Text", "required": true, "displayName": "Check-In Log Key" },
+        { "name": "IncidentID", "type": "Text", "required": true, "displayName": "Associated Incident ID" },
+        { "name": "StaffName", "type": "Text", "required": true, "displayName": "Staff Full Name" },
+        { "name": "StaffEmail", "type": "Text", "required": false, "displayName": "Staff Email" },
+        { "name": "MusterPoint", "type": "Text", "required": true, "displayName": "Muster Assembly Point" },
+        { "name": "CheckInStatus", "type": "Choice", "choices": ["SAFE", "MANUAL_SIGHT_CONFIRMED", "NEEDS_ASSISTANCE", "UNACCOUNTED"], "displayName": "Status" },
+        { "name": "CheckInMethod", "type": "Choice", "choices": ["SELF_APP", "WARDEN_SIGHT", "WARDEN_MANUAL", "OFFLINE_SYNC"], "displayName": "Verification Method" },
+        { "name": "CheckInTime", "type": "DateTime", "required": true, "displayName": "Check-In Timestamp" },
+        { "name": "GPSStatus", "type": "Text", "required": false, "displayName": "GPS Geofence Status" },
+        { "name": "DistanceMeters", "type": "Number", "required": false, "displayName": "Distance to Muster Point (Meters)" },
+        { "name": "VerifiedBy", "type": "Text", "required": false, "displayName": "Verified By" },
+        { "name": "DistressNotes", "type": "Note", "required": false, "displayName": "Distress / Assistance Notes" }
+      ]
+    },
+    {
+      "listName": "Emergency_MusterPoints",
+      "description": "Designated organizational muster points and GPS geofence zones",
+      "template": 100,
+      "fields": [
+        { "name": "Title", "type": "Text", "required": true, "displayName": "Muster Point Code (e.g. MUSTER-A)" },
+        { "name": "PointName", "type": "Text", "required": true, "displayName": "Assembly Area Name" },
+        { "name": "Description", "type": "Text", "required": true, "displayName": "Evacuation Route / Floor Assignment" },
+        { "name": "Latitude", "type": "Number", "required": true, "displayName": "Geofence Center Latitude" },
+        { "name": "Longitude", "type": "Number", "required": true, "displayName": "Geofence Center Longitude" },
+        { "name": "RadiusMeters", "type": "Number", "defaultValue": "100", "displayName": "Radius Threshold (Meters)" },
+        { "name": "AssignedWarden", "type": "Text", "required": false, "displayName": "Primary Assigned Safety Warden" }
+      ]
+    }
+  ]
+}

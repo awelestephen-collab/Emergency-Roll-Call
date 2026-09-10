@@ -1,0 +1,43 @@
+{
+  "id": "INC-638809",
+  "type": "Fire Evacuation",
+  "declaredBy": "Sarah Jenkins (Chief Safety Warden)",
+  "declaredAt": "2026-09-10T14:47:18.809Z",
+  "status": "ACTIVE",
+  "notes": "",
+  "isDrill": true,
+  "escalationThresholdSeconds": 300,
+  "checkIns": {
+    "EMP-002": {
+      "staffId": "EMP-002",
+      "staffName": "Marcus Vance",
+      "department": "Facilities & Engineering",
+      "role": "Floor 3 Warden",
+      "officeLocation": "Building 1 - Floor 3 (Room 315)",
+      "phone": "+1 (555) 345-6789",
+      "musterPointId": "MUSTER-A",
+      "musterPointName": "Muster Point A - North Car Park",
+      "status": "SAFE",
+      "checkInMethod": "SELF_APP",
+      "gpsStatus": "UNVERIFIED",
+      "distanceMeters": null,
+      "timestamp": "2026-09-10T14:47:36.216Z",
+      "verifiedBy": "Marcus Vance",
+      "notes": ""
+    }
+  },
+  "timeline": [
+    {
+      "timestamp": "2026-09-10T14:47:18.809Z",
+      "action": "EMERGENCY_DECLARED",
+      "description": "Emergency declared: Fire Evacuation by Sarah Jenkins (Chief Safety Warden). Full building evacuation ordered."
+    },
+    {
+      "timestamp": "2026-09-10T14:47:36.216Z",
+      "action": "CHECK_IN",
+      "staffId": "EMP-002",
+      "staffName": "Marcus Vance",
+      "description": "Marcus Vance checked in as SAFE at Muster Point A - North Car Park (SELF_APP)"
+    }
+  ]
+}
