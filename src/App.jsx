@@ -5,6 +5,8 @@ import { WardenDashboardView } from './pages/WardenDashboardView';
 import { IncidentHistoryView } from './pages/IncidentHistoryView';
 import { InstallModal } from './components/InstallModal';
 import { ServerConfigModal } from './components/ServerConfigModal';
+import { NotificationBanner } from './components/NotificationBanner';
+import { NotificationModal } from './components/NotificationModal';
 import {
   ShieldAlert,
   Users,
@@ -15,13 +17,15 @@ import {
   Wifi,
   WifiOff,
   Flame,
-  Smartphone
+  Smartphone,
+  Bell
 } from 'lucide-react';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('checkin'); // 'checkin', 'warden', 'history'
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showServerModal, setShowServerModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   const {
     activeIncident,
@@ -122,6 +126,15 @@ function AppContent() {
               )}
             </button>
 
+            {/* Lock-Screen Emergency Alerts Toggle / Config */}
+            <button
+              onClick={() => setShowNotificationModal(true)}
+              className="p-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-red-400 hover:text-red-300 transition-colors"
+              title="Lock-Screen Drill Notifications & Device Testing"
+            >
+              <Bell className="w-4 h-4" />
+            </button>
+
             {/* Install on Phone Button */}
             <button
               onClick={() => setShowInstallModal(true)}
@@ -177,6 +190,9 @@ function AppContent() {
         </div>
       </header>
 
+      {/* LOCK-SCREEN PUSH NOTIFICATION ALERT BANNER */}
+      <NotificationBanner />
+
       {/* MAIN VIEWPORT CONTENT */}
       <main className="flex-1 py-4">
         {activeTab === 'checkin' && <StaffCheckInView />}
@@ -200,6 +216,12 @@ function AppContent() {
         isOpen={showServerModal}
         onClose={() => setShowServerModal(false)}
         isConnected={socketConnected}
+      />
+
+      {/* EMERGENCY NOTIFICATION CONFIG & TEST MODAL */}
+      <NotificationModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
       />
     </div>
   );

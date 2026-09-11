@@ -1,5 +1,6 @@
 import express from 'express';
 import { store } from '../store.js';
+import { pushService } from '../services/pushService.js';
 
 export function createIncidentsRouter(io) {
   const router = express.Router();
@@ -29,6 +30,27 @@ export function createIncidentsRouter(io) {
       // Broadcast to all connected sockets
       io.emit('emergency_declared', summary);
 
+      // Broadcast Web Push to wake up locked/closed mobile devices
+      const isDrill = !!simulatedDrill;
+      const incidentTitle = isDrill
+        ? `🚨 DRILL: ${summary.incident.type.toUpperCase()}`
+        : `🚨 EMERGENCY: ${summary.incident.type.toUpperCase()}`;
+      const incidentBody = isDrill
+        ? `PRACTICE DRILL declared by ${summary.incident.declaredBy}. Proceed to muster points and tap here to check in.`
+        : `CRITICAL ALERT declared by ${summary.incident.declaredBy}! Evacuate immediately and tap here to check in.`;
+
+      pushService.broadcastAlert({
+        title: incidentTitle,
+        body: incidentBody,
+        tag: 'emergency-alert',
+        requireInteraction: true,
+        data: {
+          incidentId: summary.incident.id,
+          simulatedDrill: isDrill,
+          url: './'
+        }
+      }).catch(err => console.error('[PushBroadcast] Error in /declare:', err));
+
       res.status(201).json(summary);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -54,6 +76,19 @@ export function createIncidentsRouter(io) {
       });
 
       io.emit('emergency_declared', summary);
+
+      // Web Push alert
+      pushService.broadcastAlert({
+        title: '🚨 FIRE ALARM SENSOR TRIPPED',
+        body: `Building alarm sensor active in: ${zone}. Evacuate immediately and check in!`,
+        tag: 'emergency-alert',
+        requireInteraction: true,
+        data: {
+          incidentId: summary.incident.id,
+          url: './'
+        }
+      }).catch(err => console.error('[PushBroadcast] Error in /trigger-alarm:', err));
+
       res.json({ message: 'Emergency session initiated by automated alarm', summary });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -72,6 +107,15 @@ export function createIncidentsRouter(io) {
       const summary = store.getRosterSummary();
       io.emit('all_clear_declared', { closedRecord, summary });
 
+      // Web Push all clear
+      pushService.broadcastAlert({
+        title: '✅ ALL CLEAR DECLARED',
+        body: `All Clear declared by ${closedBy || 'Chief Warden'}. You may safely return to your designated areas.`,
+        tag: 'emergency-all-clear',
+        requireInteraction: false,
+        data: { url: './' }
+      }).catch(err => console.error('[PushBroadcast] Error in /all-clear:', err));
+
       res.json({ message: 'Incident closed successfully', incident: closedRecord });
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -83,6 +127,17 @@ export function createIncidentsRouter(io) {
     try {
       const { playing } = req.body;
       io.emit('siren_state_changed', { playing: !!playing });
+
+      if (playing) {
+        pushService.broadcastAlert({
+          title: '🚨 EVACUATION SIREN SOUNDING',
+          body: 'Safety Warden has sounded the evacuation alarm! Evacuate immediately!',
+          tag: 'emergency-siren',
+          requireInteraction: true,
+          data: { url: './' }
+        }).catch(err => console.error('[PushBroadcast] Error in /siren:', err));
+      }
+
       res.json({ success: true, playing: !!playing });
     } catch (err) {
       res.status(500).json({ error: err.message });

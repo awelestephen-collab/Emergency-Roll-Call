@@ -11,6 +11,7 @@ import fs from 'fs';
 import { createIncidentsRouter } from './routes/incidents.js';
 import { createCheckInRouter } from './routes/checkin.js';
 import { createReportsRouter } from './routes/reports.js';
+import { createPushRouter } from './routes/push.js';
 import { sharePointSync } from './services/sharePointSync.js';
 import { store } from './store.js';
 
@@ -38,6 +39,7 @@ app.use(express.json());
 app.use('/api/incidents', createIncidentsRouter(io));
 app.use('/api/checkin', createCheckInRouter(io));
 app.use('/api/reports', createReportsRouter());
+app.use('/api/push', createPushRouter());
 
 // Serve static frontend build if dist folder exists
 const distPath = path.join(__dirname, '../dist');
