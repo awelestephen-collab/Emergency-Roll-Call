@@ -13,7 +13,9 @@ import {
   PhoneCall,
   Search,
   Flame,
-  UserPlus
+  UserPlus,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { StaffManagerModal } from '../components/StaffManagerModal';
 
@@ -28,7 +30,9 @@ export function StaffCheckInView() {
     offlineQueue,
     submitSelfCheckIn,
     declareEmergency,
-    roster
+    roster,
+    isSirenPlaying,
+    toggleSiren
   } = useIncident();
 
   const [selectedMusterId, setSelectedMusterId] = useState(musterPoints[0]?.id || 'MUSTER-A');
@@ -151,8 +155,29 @@ export function StaffCheckInView() {
               <Clock className="w-3.5 h-3.5" />
               <span>Declared: {new Date(activeIncident.declaredAt).toLocaleTimeString()}</span>
             </div>
-            <div className="font-semibold">
-              Commander: {activeIncident.declaredBy}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleSiren}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow ${
+                  isSirenPlaying
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 animate-pulse'
+                    : 'bg-red-700 hover:bg-red-600 text-white'
+                }`}
+                title={isSirenPlaying ? 'Mute siren on this phone' : 'Sound siren on this phone'}
+              >
+                {isSirenPlaying ? (
+                  <>
+                    <VolumeX className="w-3.5 h-3.5" />
+                    <span>Silence Siren</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Sound Siren</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

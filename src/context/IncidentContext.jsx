@@ -242,7 +242,18 @@ export function IncidentProvider({ children }) {
 
       socket.on('emergency_declared', (summary) => {
         applySummary(summary);
-        soundSynthesizer.playWarningBeep();
+        soundSynthesizer.startSiren();
+        setIsSirenPlaying(true);
+      });
+
+      socket.on('siren_state_changed', ({ playing }) => {
+        if (playing) {
+          soundSynthesizer.startSiren();
+          setIsSirenPlaying(true);
+        } else {
+          soundSynthesizer.stopSiren();
+          setIsSirenPlaying(false);
+        }
       });
 
       socket.on('roster_updated', (summary) => {
@@ -251,6 +262,8 @@ export function IncidentProvider({ children }) {
 
       socket.on('all_clear_declared', ({ closedRecord, summary }) => {
         applySummary(summary);
+        soundSynthesizer.stopSiren();
+        setIsSirenPlaying(false);
         soundSynthesizer.playSafeChime();
       });
 
@@ -351,14 +364,27 @@ export function IncidentProvider({ children }) {
   };
 
   // Audio controls
-  const toggleSiren = () => {
-    if (isSirenPlaying) {
-      soundSynthesizer.stopSiren();
-      setIsSirenPlaying(false);
-    } else {
+  const toggleSiren = async () => {
+    const nextState = !isSirenPlaying;
+    if (nextState) {
       soundSynthesizer.startSiren();
       setIsSirenPlaying(true);
+    } else {
+      soundSynthesizer.stopSiren();
+      setIsSirenPlaying(false);
     }
+
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('siren_toggle', { playing: nextState });
+    }
+
+    try {
+      await fetch(getApiUrl('/api/incidents/siren'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playing: nextState })
+      });
+    } catch {}
   };
 
   const toggleMute = () => {
@@ -515,7 +541,8 @@ export function IncidentProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         applySummary(data);
-        soundSynthesizer.playWarningBeep();
+        soundSynthesizer.startSiren();
+        setIsSirenPlaying(true);
         return data;
       }
     } catch {}
@@ -529,7 +556,8 @@ export function IncidentProvider({ children }) {
 
     setActiveIncident(newIncident);
     setRoster(resetRoster);
-    soundSynthesizer.playWarningBeep();
+    soundSynthesizer.startSiren();
+    setIsSirenPlaying(true);
     return { active: true, incident: newIncident, roster: resetRoster };
   };
 

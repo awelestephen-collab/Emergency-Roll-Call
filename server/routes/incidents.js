@@ -78,6 +78,17 @@ export function createIncidentsRouter(io) {
     }
   });
 
+  // POST /api/incidents/siren - Remotely sound or silence sirens on all staff devices
+  router.post('/siren', (req, res) => {
+    try {
+      const { playing } = req.body;
+      io.emit('siren_state_changed', { playing: !!playing });
+      res.json({ success: true, playing: !!playing });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/incidents/history - Historical incidents archive
   router.get('/history', (req, res) => {
     try {

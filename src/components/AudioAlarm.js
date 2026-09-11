@@ -87,9 +87,12 @@ class SoundSynthesizer {
     }
   }
 
-  // Evacuation siren (pulsing high-low tone for active emergency)
+  // Evacuation siren (loud pulsing high-low tone + hardware vibration)
   startSiren() {
-    if (this.isMuted || this.sirenOscillator) return;
+    if (this.isMuted) return;
+    this.triggerVibration();
+    if (this.sirenOscillator) return;
+
     try {
       this.initContext();
       if (!this.audioCtx) return;
@@ -97,10 +100,10 @@ class SoundSynthesizer {
       let isHigh = false;
       this.sirenOscillator = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
-      gain.gain.setValueAtTime(0.2, this.audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.35, this.audioCtx.currentTime);
 
       this.sirenOscillator.type = 'sawtooth';
-      this.sirenOscillator.frequency.setValueAtTime(600, this.audioCtx.currentTime);
+      this.sirenOscillator.frequency.setValueAtTime(650, this.audioCtx.currentTime);
 
       this.sirenOscillator.connect(gain);
       gain.connect(this.audioCtx.destination);
@@ -109,16 +112,33 @@ class SoundSynthesizer {
       this.sirenInterval = setInterval(() => {
         if (!this.audioCtx || !this.sirenOscillator) return;
         const now = this.audioCtx.currentTime;
-        const targetFreq = isHigh ? 600 : 900;
-        this.sirenOscillator.frequency.setTargetAtTime(targetFreq, now, 0.15);
+        const targetFreq = isHigh ? 650 : 980;
+        this.sirenOscillator.frequency.setTargetAtTime(targetFreq, now, 0.12);
         isHigh = !isHigh;
+        if (isHigh) {
+          this.triggerVibration();
+        }
       }, 500);
     } catch (e) {
       console.warn('Siren start error:', e);
     }
   }
 
+  triggerVibration() {
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([400, 150, 400]);
+      }
+    } catch {}
+  }
+
   stopSiren() {
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(0);
+      }
+    } catch {}
+
     if (this.sirenInterval) {
       clearInterval(this.sirenInterval);
       this.sirenInterval = null;

@@ -79,6 +79,11 @@ io.on('connection', (socket) => {
   // Send current state immediately on connect
   socket.emit('initial_state', store.getRosterSummary());
 
+  socket.on('siren_toggle', (data) => {
+    console.log(`[Socket] Siren state update:`, data);
+    io.emit('siren_state_changed', data);
+  });
+
   socket.on('disconnect', () => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
   });
