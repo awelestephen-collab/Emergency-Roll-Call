@@ -161,6 +161,8 @@ export function IncidentProvider({ children }) {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
 
   const socketRef = useRef(null);
+  const acknowledgedIncidentRef = useRef(null);
+  const acknowledgedSignalRef = useRef(null);
 
   // Recalculate stats whenever roster changes
   useEffect(() => {
@@ -214,6 +216,16 @@ export function IncidentProvider({ children }) {
     }
   }, []);
 
+  const triggerEmergencySignal = useCallback((summary, source = 'unknown') => {
+    const incidentId = summary?.incident?.id;
+    if (!incidentId || summary?.incident?.status !== 'ACTIVE') return;
+    if (acknowledgedIncidentRef.current === incidentId) return;
+    acknowledgedIncidentRef.current = incidentId;
+    console.info(`[AlertReceive] Emergency incident signal received via ${source}. incident=${incidentId}`);
+    soundSynthesizer.startSiren();
+    setIsSirenPlaying(true);
+  }, []);
+
   // Socket.io initialization with silent failover for GitHub Pages and custom cloud hubs
   useEffect(() => {
     try {
@@ -238,19 +250,25 @@ export function IncidentProvider({ children }) {
 
       socket.on('initial_state', (summary) => {
         applySummary(summary);
+        triggerEmergencySignal(summary, 'socket:initial_state');
       });
 
       socket.on('emergency_declared', (summary) => {
         applySummary(summary);
-        soundSynthesizer.startSiren();
-        setIsSirenPlaying(true);
+        if (summary?.alertId && summary.alertId === acknowledgedSignalRef.current) return;
+        acknowledgedSignalRef.current = summary?.alertId || null;
+        triggerEmergencySignal(summary, 'socket:emergency_declared');
       });
 
-      socket.on('siren_state_changed', ({ playing }) => {
+      socket.on('siren_state_changed', ({ playing, alertId }) => {
+        if (alertId && alertId === acknowledgedSignalRef.current) return;
+        acknowledgedSignalRef.current = alertId || null;
         if (playing) {
+          console.info('[AlertReceive] Siren toggle received via socket. playing=true');
           soundSynthesizer.startSiren();
           setIsSirenPlaying(true);
         } else {
+          console.info('[AlertReceive] Siren toggle received via socket. playing=false');
           soundSynthesizer.stopSiren();
           setIsSirenPlaying(false);
         }
@@ -262,6 +280,8 @@ export function IncidentProvider({ children }) {
 
       socket.on('all_clear_declared', ({ closedRecord, summary }) => {
         applySummary(summary);
+        acknowledgedIncidentRef.current = null;
+        acknowledgedSignalRef.current = null;
         soundSynthesizer.stopSiren();
         setIsSirenPlaying(false);
         soundSynthesizer.playSafeChime();
@@ -273,7 +293,7 @@ export function IncidentProvider({ children }) {
     } catch (e) {
       // Socket failed (expected on static host without custom backend configured)
     }
-  }, [applySummary]);
+  }, [applySummary, triggerEmergencySignal]);
 
   // Fetch from backend if available and keep in sync with polling backup
   useEffect(() => {
@@ -315,6 +335,7 @@ export function IncidentProvider({ children }) {
         .then(summary => {
           if (summary && isMounted) {
             applySummary(summary);
+            triggerEmergencySignal(summary, 'polling');
           }
         })
         .catch(() => {});
@@ -324,7 +345,7 @@ export function IncidentProvider({ children }) {
       isMounted = false;
       clearInterval(pollInterval);
     };
-  }, [applySummary]);
+  }, [applySummary, triggerEmergencySignal]);
 
   // Escalation timer
   useEffect(() => {
@@ -541,6 +562,7 @@ export function IncidentProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         applySummary(data);
+        acknowledgedIncidentRef.current = data?.incident?.id || null;
         soundSynthesizer.startSiren();
         setIsSirenPlaying(true);
         return data;
@@ -556,6 +578,7 @@ export function IncidentProvider({ children }) {
 
     setActiveIncident(newIncident);
     setRoster(resetRoster);
+    acknowledgedIncidentRef.current = newIncident.id;
     soundSynthesizer.startSiren();
     setIsSirenPlaying(true);
     return { active: true, incident: newIncident, roster: resetRoster };
@@ -601,6 +624,8 @@ export function IncidentProvider({ children }) {
     } catch {}
 
     setActiveIncident(null);
+    acknowledgedIncidentRef.current = null;
+    acknowledgedSignalRef.current = null;
     soundSynthesizer.stopSiren();
     setIsSirenPlaying(false);
     soundSynthesizer.playSafeChime();

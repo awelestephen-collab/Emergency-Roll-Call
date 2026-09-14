@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { IncidentProvider, useIncident } from './context/IncidentContext';
 import { StaffCheckInView } from './pages/StaffCheckInView';
 import { WardenDashboardView } from './pages/WardenDashboardView';
@@ -26,6 +26,13 @@ function AppContent() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showServerModal, setShowServerModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('alert')) {
+      setActiveTab('checkin');
+    }
+  }, []);
 
   const {
     activeIncident,

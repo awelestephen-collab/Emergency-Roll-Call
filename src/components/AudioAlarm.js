@@ -100,13 +100,20 @@ class SoundSynthesizer {
       let isHigh = false;
       this.sirenOscillator = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
-      gain.gain.setValueAtTime(0.35, this.audioCtx.currentTime);
+      const compressor = this.audioCtx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-24, this.audioCtx.currentTime);
+      compressor.knee.setValueAtTime(20, this.audioCtx.currentTime);
+      compressor.ratio.setValueAtTime(12, this.audioCtx.currentTime);
+      compressor.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
+      compressor.release.setValueAtTime(0.25, this.audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.75, this.audioCtx.currentTime);
 
       this.sirenOscillator.type = 'sawtooth';
       this.sirenOscillator.frequency.setValueAtTime(650, this.audioCtx.currentTime);
 
       this.sirenOscillator.connect(gain);
-      gain.connect(this.audioCtx.destination);
+      gain.connect(compressor);
+      compressor.connect(this.audioCtx.destination);
       this.sirenOscillator.start();
 
       this.sirenInterval = setInterval(() => {

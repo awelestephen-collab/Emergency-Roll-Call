@@ -1,5 +1,5 @@
 // Service Worker for Emergency Roll Call PWA
-const CACHE_NAME = 'emergency-roll-call-v6';
+const CACHE_NAME = 'emergency-roll-call-v7';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -100,6 +100,15 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || '🚨 EMERGENCY EVACUATION DRILL';
+  const payloadData = data.data || {};
+  const rawUrl = payloadData.url || self.registration.scope;
+  const incidentId = payloadData.incidentId || null;
+  const alertId = payloadData.alertId || `sw-${Date.now()}`;
+  const targetUrl = incidentId
+    ? `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}alert=${encodeURIComponent(incidentId)}`
+    : rawUrl;
+
+  console.log(`[SW] Showing emergency notification alertId=${alertId} incidentId=${incidentId || 'none'}`);
   const options = {
     body: data.body || 'Immediate evacuation ordered! Tap to open muster roll-call and check in.',
     icon: self.registration.scope + 'icon-192.png',
@@ -111,7 +120,10 @@ self.addEventListener('push', (event) => {
     silent: false,
     timestamp: data.timestamp || Date.now(),
     data: {
-      url: (data.data && data.data.url) ? data.data.url : self.registration.scope,
+      url: targetUrl,
+      alertId,
+      incidentId,
+      type: payloadData.type || 'EVACUATION',
       timestamp: Date.now()
     },
     actions: [
@@ -129,12 +141,16 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = (event.notification.data && event.notification.data.url)
     ? event.notification.data.url
     : self.registration.scope;
+  console.log(`[SW] Notification clicked alertId=${event.notification?.data?.alertId || 'unknown'} target=${targetUrl}`);
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       // If a window is already open, focus it
       for (const client of windowClients) {
         if ('focus' in client) {
+          if ('navigate' in client && client.url !== targetUrl) {
+            return client.navigate(targetUrl).then(() => client.focus());
+          }
           return client.focus();
         }
       }

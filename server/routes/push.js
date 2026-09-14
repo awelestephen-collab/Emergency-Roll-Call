@@ -59,7 +59,9 @@ export function createPushRouter() {
   router.post('/test', async (req, res) => {
     try {
       const { subscription } = req.body;
+      const alertId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const testPayload = {
+        alertId,
         title: '🚨 TEST EMERGENCY ALERT',
         body: 'Test alert: Your phone will ring and vibrate when a drill is declared even if your screen is locked!',
         tag: 'emergency-test',

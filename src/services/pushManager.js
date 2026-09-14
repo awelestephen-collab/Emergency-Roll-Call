@@ -99,20 +99,32 @@ export const pushManager = {
       deviceInfo: navigator.userAgent
     };
 
-    try {
-      const res = await fetch(getApiUrl('/api/push/subscribe'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        console.warn('[PushManager] Server returned status:', res.status);
+    let syncedWithServer = false;
+    let lastError = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(getApiUrl('/api/push/subscribe'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          syncedWithServer = true;
+          break;
+        }
+        lastError = new Error(`Server returned status ${res.status}`);
+      } catch (err) {
+        lastError = err;
       }
-    } catch (err) {
-      console.error('[PushManager] Failed to send subscription to server:', err);
+    }
+
+    if (!syncedWithServer) {
+      console.error('[PushManager] Failed to register push subscription with backend:', lastError);
+      throw new Error('Could not finish notification setup on server. Please check your connection and try again.');
     }
 
     localStorage.setItem(STORAGE_KEY_SUBSCRIBED, 'true');
+    console.info('[PushManager] Push subscription active and synced with backend.');
     return subscription;
   },
 
@@ -146,5 +158,22 @@ export const pushManager = {
       body: JSON.stringify({ subscription: sub ? sub.toJSON() : null })
     });
     return res.json();
+  },
+
+  openNotificationSettings() {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const isFirefox = /firefox/i.test(ua);
+    const settingsUrl = isFirefox
+      ? 'about:preferences#privacy'
+      : 'chrome://settings/content/notifications';
+
+    try {
+      const opened = window.open(settingsUrl, '_blank', 'noopener,noreferrer');
+      return !!opened;
+    } catch (err) {
+      console.warn('[PushManager] Could not open notification settings URL:', err);
+      return false;
+    }
   }
 };
