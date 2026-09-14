@@ -121,11 +121,11 @@ export function StaffCheckInView() {
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-4 space-y-5">
+    <div className="max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-4 space-y-4 sm:space-y-5">
       {/* Offline Alert Bar */}
       {!isOnline && (
-        <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-3 flex items-center gap-3 text-amber-200">
-          <WifiOff className="w-5 h-5 flex-shrink-0 animate-pulse text-amber-400" />
+        <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3 text-amber-200">
+          <WifiOff className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 animate-pulse text-amber-400" />
           <div className="text-xs sm:text-sm">
             <span className="font-bold">Offline Resilience Active:</span> No cellular or Wi-Fi signal. You can still tap to check in; records will auto-sync once connectivity returns. ({offlineQueue.length} queued)
           </div>

@@ -51,14 +51,14 @@ export function IncidentHistoryView() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4 space-y-6">
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="p-2.5 bg-slate-800 rounded-xl text-slate-200">
-            <History className="w-6 h-6 text-red-500" />
+    <div className="max-w-7xl mx-auto px-2.5 sm:px-4 py-3 sm:py-4 space-y-4 sm:space-y-6">
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-5 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <span className="p-2 sm:p-2.5 bg-slate-800 rounded-xl text-slate-200 flex-shrink-0">
+            <History className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
           </span>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white">
+            <h1 className="text-lg sm:text-2xl font-black text-white">
               Safety Compliance Audit Log
             </h1>
             <p className="text-xs sm:text-sm text-slate-400">
@@ -69,7 +69,7 @@ export function IncidentHistoryView() {
 
         <button
           onClick={fetchHistory}
-          className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-xl transition-colors"
+          className="w-full sm:w-auto px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-xl transition-colors text-center"
         >
           Refresh Logs
         </button>

@@ -67,41 +67,43 @@ function AppContent() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       {/* GLOBAL HIGH-CONTRAST TOP BAR */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
           {/* Brand Logo & Emergency Pulse */}
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl text-white shadow-lg transition-all ${
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className={`p-1.5 sm:p-2 rounded-xl text-white shadow-lg transition-all flex-shrink-0 ${
               activeIncident ? 'bg-red-600 animate-pulse glow-red' : 'bg-slate-800'
             }`}>
-              <ShieldAlert className="w-5 h-5" />
+              <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-sm sm:text-base tracking-tight text-white">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-black text-xs sm:text-base tracking-tight text-white truncate">
                   MUSTER CALL
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                <span className="hidden xs:inline text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
                   Life Safety
                 </span>
               </div>
-              <div className="text-[11px] text-slate-400 hidden sm:block">
+              <div className="text-[10px] sm:text-[11px] text-slate-400 hidden md:block truncate">
                 Emergency Evacuation & Accountability System
               </div>
             </div>
           </div>
 
           {/* Right Status Indicators & Sound Control */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2.5 flex-shrink-0">
             {/* Live Active Status Pill */}
             {activeIncident ? (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600/30 border border-red-500 text-red-300 text-xs font-black uppercase tracking-wider animate-pulse">
-                <Flame className="w-3.5 h-3.5 text-red-400" />
-                <span>EVACUATION ACTIVE</span>
+              <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full bg-red-600/30 border border-red-500 text-red-300 text-[10px] sm:text-xs font-black uppercase tracking-wider animate-pulse">
+                <Flame className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400 flex-shrink-0" />
+                <span className="hidden xs:inline">EVACUATION ACTIVE</span>
+                <span className="xs:hidden">ACTIVE</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping-slow"></span>
-                <span>Standby Ready</span>
+              <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-xs font-semibold">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-ping-slow"></span>
+                <span className="hidden xs:inline">Standby Ready</span>
+                <span className="xs:hidden">Ready</span>
               </div>
             )}
 
@@ -114,7 +116,7 @@ function AppContent() {
                   toggleMute();
                 }
               }}
-              className={`p-2 rounded-xl border transition-colors ${
+              className={`p-1.5 sm:p-2 rounded-xl border transition-colors ${
                 soundPermission !== 'granted'
                   ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30 animate-pulse'
                   : isAudioMuted
@@ -141,7 +143,7 @@ function AppContent() {
             {/* Connectivity Badge */}
             <button
               onClick={() => setShowServerModal(true)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-medium border transition-colors cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-xl text-[10px] sm:text-[11px] font-medium border transition-colors cursor-pointer ${
                 isOnline && socketConnected
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                   : isOnline
@@ -158,18 +160,18 @@ function AppContent() {
             >
               {isOnline && socketConnected ? (
                 <>
-                  <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="hidden sm:inline">Sync Live</span>
+                  <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
+                  <span className="hidden md:inline">Sync Live</span>
                 </>
               ) : isOnline ? (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                  <span className="hidden sm:inline">Standalone</span>
+                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  <span className="hidden md:inline">Standalone</span>
                 </>
               ) : (
                 <>
-                  <WifiOff className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-                  <span className="hidden sm:inline">Offline</span>
+                  <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400 animate-pulse" />
+                  <span className="hidden md:inline">Offline</span>
                 </>
               )}
             </button>
@@ -177,7 +179,7 @@ function AppContent() {
             {/* Lock-Screen Emergency Alerts Toggle / Config */}
             <button
               onClick={() => setShowNotificationModal(true)}
-              className="p-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-red-400 hover:text-red-300 transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-red-400 hover:text-red-300 transition-colors"
               title="Lock-Screen Drill Notifications & Device Testing"
             >
               <Bell className="w-4 h-4" />
@@ -186,10 +188,10 @@ function AppContent() {
             {/* Install on Phone Button */}
             <button
               onClick={() => setShowInstallModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 rounded-xl text-xs font-bold transition-colors shadow-sm"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 rounded-xl text-[10px] sm:text-xs font-bold transition-colors shadow-sm"
               title="Install this app on your iPhone or Android home screen"
             >
-              <Smartphone className="w-3.5 h-3.5 text-red-400" />
+              <Smartphone className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400" />
               <span className="hidden sm:inline">Install App</span>
             </button>
           </div>

@@ -230,19 +230,28 @@ export function IncidentProvider({ children }) {
     }
   }, [activeIncident, soundPermission, isAudioMuted]);
 
+  // Ref for audio mute state to decouple listeners and prevent socket reconnect loops
+  const isAudioMutedRef = useRef(isAudioMuted);
+  useEffect(() => {
+    isAudioMutedRef.current = isAudioMuted;
+  }, [isAudioMuted]);
+
   // Summary updater helper
   const applySummary = useCallback((summary) => {
     if (!summary) return;
     if (summary.incident !== undefined) {
       setActiveIncident(summary.incident);
-      if (summary.incident && summary.incident.status === 'ACTIVE' && !isAudioMuted) {
+      if (summary.incident && summary.incident.status === 'ACTIVE' && !isAudioMutedRef.current) {
         setIsSirenPlaying(true);
         soundSynthesizer.startSiren();
+      } else if (!summary.incident || summary.incident.status !== 'ACTIVE') {
+        setIsSirenPlaying(false);
+        soundSynthesizer.stopSiren();
       }
     }
     if (summary.isSirenPlaying !== undefined) {
       setIsSirenPlaying(summary.isSirenPlaying);
-      if (summary.isSirenPlaying && !isAudioMuted) {
+      if (summary.isSirenPlaying && !isAudioMutedRef.current) {
         soundSynthesizer.startSiren();
       } else if (!summary.isSirenPlaying) {
         soundSynthesizer.stopSiren();
@@ -260,7 +269,7 @@ export function IncidentProvider({ children }) {
         musterPointBreakdown: summary.musterPointBreakdown || {}
       });
     }
-  }, [isAudioMuted]);
+  }, []);
 
   const triggerEmergencySignal = useCallback((summary, source = 'unknown') => {
     const incidentId = summary?.incident?.id;
@@ -268,11 +277,11 @@ export function IncidentProvider({ children }) {
     if (acknowledgedIncidentRef.current === incidentId) return;
     acknowledgedIncidentRef.current = incidentId;
     console.info(`[AlertReceive] Emergency incident signal received via ${source}. incident=${incidentId}`);
-    if (!isAudioMuted) {
+    if (!isAudioMutedRef.current) {
       soundSynthesizer.startSiren();
       setIsSirenPlaying(true);
     }
-  }, [isAudioMuted]);
+  }, []);
 
   // Socket.io initialization with silent failover for GitHub Pages and custom cloud hubs
   useEffect(() => {
@@ -290,6 +299,22 @@ export function IncidentProvider({ children }) {
 
       socket.on('connect', () => {
         setSocketConnected(true);
+        console.info('[Socket] Connected to backend hub:', socket.id);
+      });
+
+      socket.on('connect_error', (err) => {
+        console.warn('[Socket] Connection error:', err.message);
+      });
+
+      socket.on('reconnect', () => {
+        console.info('[Socket] Reconnected! Refreshing incident state...');
+        setSocketConnected(true);
+        fetch(getApiUrl('/api/incidents/active'))
+          .then(res => res.ok ? res.json() : null)
+          .then(summary => {
+            if (summary) applySummary(summary);
+          })
+          .catch(() => {});
       });
 
       socket.on('disconnect', () => {
@@ -623,7 +648,9 @@ export function IncidentProvider({ children }) {
         setIsSirenPlaying(true);
         return data;
       }
-    } catch {}
+    } catch (err) {
+      console.warn('[DeclareEmergency] Backend HTTP fetch failed, broadcasting via socket fallback:', err);
+    }
 
     // Reset roster to unaccounted on new emergency
     const resetRoster = staffDirectory.map(s => ({
@@ -632,12 +659,27 @@ export function IncidentProvider({ children }) {
       checkIn: null
     }));
 
+    const clientSummary = {
+      active: true,
+      incident: newIncident,
+      isSirenPlaying: true,
+      totalStaff: resetRoster.length,
+      accountedCount: 0,
+      unaccountedCount: resetRoster.length,
+      roster: resetRoster
+    };
+
+    // Broadcast across socket network if connected
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('siren_toggle', { playing: true, alertId: `declare-${Date.now()}` });
+    }
+
     setActiveIncident(newIncident);
     setRoster(resetRoster);
     acknowledgedIncidentRef.current = newIncident.id;
     soundSynthesizer.startSiren();
     setIsSirenPlaying(true);
-    return { active: true, incident: newIncident, roster: resetRoster };
+    return clientSummary;
   };
 
   // Issue all-clear
@@ -669,7 +711,15 @@ export function IncidentProvider({ children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ closedBy, finalNotes })
       });
+      if (res.ok) {
+        const data = await res.json();
+        applySummary(data);
+      }
     } catch {}
+
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('siren_toggle', { playing: false, alertId: `allclear-${Date.now()}` });
+    }
 
     // Save to local history
     try {
