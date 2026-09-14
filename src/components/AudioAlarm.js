@@ -328,6 +328,7 @@ class SoundSynthesizer {
    */
   startSiren() {
     this.isSirenPlaying = true;
+    this.startVibrationLoop();
 
     if (!this.isSoundEnabled()) {
       console.info('[AudioAlarm] Sound permission not granted or muted. Armed for immediate playback once permitted.');
@@ -337,7 +338,6 @@ class SoundSynthesizer {
     }
 
     this.unlockAudio();
-    this.triggerVibration();
 
     // 1. Play native HTML5 audio element
     if (this.audioElement) {
@@ -428,10 +428,35 @@ class SoundSynthesizer {
     }
   }
 
+  startVibrationLoop() {
+    if (typeof window === 'undefined' || !('vibrate' in navigator)) return;
+    this.triggerVibration();
+    if (this.vibrateInterval) return;
+    this.vibrateInterval = setInterval(() => {
+      if (this.isSirenPlaying) {
+        this.triggerVibration();
+      } else {
+        this.stopVibrationLoop();
+      }
+    }, 2500);
+  }
+
+  stopVibrationLoop() {
+    if (this.vibrateInterval) {
+      clearInterval(this.vibrateInterval);
+      this.vibrateInterval = null;
+    }
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(0);
+      }
+    } catch {}
+  }
+
   triggerVibration() {
     try {
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate([800, 200, 800, 200, 800, 200, 1200]);
+        navigator.vibrate([1000, 200, 1000, 200, 1000]);
       }
     } catch {}
   }
@@ -439,12 +464,7 @@ class SoundSynthesizer {
   stopSiren() {
     this.isSirenPlaying = false;
     this.setAutoplayBlocked(false);
-
-    try {
-      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate(0);
-      }
-    } catch {}
+    this.stopVibrationLoop();
 
     if (this.audioElement) {
       try {

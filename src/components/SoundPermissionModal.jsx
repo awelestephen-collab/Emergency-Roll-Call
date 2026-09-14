@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX, ShieldAlert, CheckCircle, BellRing } from 'lucide-react';
+import { Volume2, VolumeX, ShieldAlert, CheckCircle, BellRing, Smartphone } from 'lucide-react';
 import { soundSynthesizer } from './AudioAlarm';
+import { pushManager } from '../services/pushManager';
 
 export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeIncident }) {
   const [permissionState, setPermissionState] = useState(soundSynthesizer.getSoundPermission());
@@ -13,9 +14,20 @@ export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeInciden
 
   if (!isOpen) return null;
 
-  const handleAllowSound = () => {
+  const handleAllowSound = async () => {
     soundSynthesizer.grantSoundPermission();
     soundSynthesizer.unlockAudio();
+    soundSynthesizer.triggerVibration(); // Instant vibration confirmation
+
+    // Request OS push notification permission so alerts ring when Chrome is closed
+    if (pushManager.isPushSupported()) {
+      try {
+        await pushManager.subscribe();
+      } catch (err) {
+        console.warn('[Push] Background push subscribe warning:', err);
+      }
+    }
+
     if (activeIncident && activeIncident.status === 'ACTIVE') {
       soundSynthesizer.startSiren();
     } else {
@@ -43,11 +55,11 @@ export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeInciden
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase font-black tracking-widest px-2 py-0.5 rounded-full bg-red-600 text-white">
-                Audio Safety Alert
+                Life Safety Alerts
               </span>
             </div>
             <h3 className="text-lg sm:text-xl font-black text-white mt-1">
-              Enable Evacuation Siren?
+              Enable Alarm, Vibration & Alerts?
             </h3>
           </div>
         </div>
@@ -59,21 +71,21 @@ export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeInciden
               🚨 AN ACTIVE EVACUATION IS CURRENTLY IN PROGRESS.
             </span>
           ) : null}
-          In compliance with workplace safety procedures, this application requests your permission to sound the emergency evacuation siren and audible roll-call alerts on this device.
+          In compliance with workplace safety procedures, this application requests your permission to sound evacuation sirens, vibrate this device, and deliver immediate lock-screen notifications even when Chrome is closed.
         </p>
 
-        <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-2 text-xs text-slate-400">
+        <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 text-xs text-slate-400">
           <div className="flex items-center gap-2 text-slate-200 font-medium">
             <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Sounds siren immediately during fire & evacuation drills</span>
+            <span>Sounds evacuation siren & vibrates phone continuously on trigger</span>
           </div>
           <div className="flex items-center gap-2 text-slate-200 font-medium">
-            <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Unlocks device audio hardware for instantaneous alarm triggers</span>
+            <BellRing className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>Delivers immediate lock-screen alerts even when Chrome is closed or minimized</span>
           </div>
-          <div className="flex items-center gap-2 text-slate-400">
-            <VolumeX className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            <span>You can mute or change sound permission at any time from the top bar</span>
+          <div className="flex items-center gap-2 text-slate-200 font-medium">
+            <Smartphone className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <span>Checking in "SAFE" immediately ends the alarm on your device</span>
           </div>
         </div>
 
@@ -85,7 +97,7 @@ export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeInciden
             className="flex-1 py-3.5 px-4 bg-red-600 hover:bg-red-500 active:scale-95 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-2xl shadow-xl shadow-red-950/50 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <Volume2 className="w-4 h-4" />
-            <span>Allow Alarm Siren</span>
+            <span>Allow Siren & Alerts</span>
           </button>
 
           <button
