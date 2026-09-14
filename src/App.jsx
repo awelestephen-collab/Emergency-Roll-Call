@@ -43,6 +43,9 @@ function AppContent() {
     isOnline,
     socketConnected,
     isAudioMuted,
+    isSirenPlaying,
+    isAutoplayBlocked,
+    unlockAudio,
     toggleMute
   } = useIncident();
 
@@ -200,6 +203,29 @@ function AppContent() {
           </button>
         </div>
       </header>
+
+      {/* AUTOPLAY UNLOCK BANNER FOR MOBILE BROWSERS & PWAs */}
+      {activeIncident && isAutoplayBlocked && (
+        <div
+          onClick={unlockAudio}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') unlockAudio(); }}
+          className="bg-red-600 hover:bg-red-500 cursor-pointer text-white px-4 py-3 text-center border-b-2 border-amber-300 shadow-2xl animate-pulse transition-all select-none"
+        >
+          <div className="max-w-4xl mx-auto flex items-center justify-center gap-3">
+            <Volume2 className="w-6 h-6 animate-bounce text-amber-300 flex-shrink-0" />
+            <div className="text-left sm:text-center">
+              <span className="font-black text-sm sm:text-base tracking-wide uppercase block sm:inline mr-2">
+                🚨 EVACUATION ALARM ACTIVE:
+              </span>
+              <span className="text-xs sm:text-sm font-semibold underline underline-offset-2">
+                TAP ANYWHERE ON SCREEN TO SOUND SIREN ON THIS DEVICE
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* LOCK-SCREEN PUSH NOTIFICATION ALERT BANNER */}
       <NotificationBanner />

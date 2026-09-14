@@ -11,18 +11,39 @@ class SoundSynthesizer {
     this.sirenOscillator = null;
     this.sirenInterval = null;
     this.isUnlocked = false;
+    this.isAutoplayBlocked = false;
+    this.blockedListeners = new Set();
+  }
+
+  onBlockedChange(callback) {
+    this.blockedListeners.add(callback);
+    callback(this.isAutoplayBlocked);
+    return () => this.blockedListeners.delete(callback);
+  }
+
+  setAutoplayBlocked(blocked) {
+    if (this.isAutoplayBlocked !== blocked) {
+      this.isAutoplayBlocked = blocked;
+      this.blockedListeners.forEach(cb => cb(blocked));
+    }
   }
 
   unlockAudio() {
     this.initContext();
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume().catch(() => {});
+      this.audioCtx.resume().then(() => {
+        this.setAutoplayBlocked(false);
+      }).catch(() => {});
+    } else if (this.audioCtx && this.audioCtx.state === 'running') {
+      this.setAutoplayBlocked(false);
     }
     if (!this.audioElement && typeof window !== 'undefined') {
       try {
-        const audio = new Audio('./siren.wav');
+        const sirenUrl = new URL('siren.wav', window.location.href).href;
+        const audio = new Audio(sirenUrl);
         audio.loop = true;
         audio.preload = 'auto';
+        audio.volume = 1.0;
         this.audioElement = audio;
       } catch (e) {}
     }
@@ -114,15 +135,40 @@ class SoundSynthesizer {
     // 1. Play native HTML5 audio element (loudest and most reliable on mobile media stream)
     if (this.audioElement) {
       try {
-        this.audioElement.currentTime = 0;
+        this.audioElement.volume = 1.0;
         const playPromise = this.audioElement.play();
         if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn('[AudioAlarm] HTML5 audio play blocked:', err);
+          playPromise.then(() => {
+            this.setAutoplayBlocked(false);
+          }).catch((err) => {
+            console.warn('[AudioAlarm] Autoplay blocked by browser policy, listening for touch/click to sound alarm:', err);
+            this.setAutoplayBlocked(true);
+            const retryOnGesture = () => {
+              this.unlockAudio();
+              if (this.audioElement && !this.isMuted) {
+                this.audioElement.play().then(() => {
+                  this.setAutoplayBlocked(false);
+                }).catch(() => {});
+              }
+              if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume().then(() => {
+                  this.setAutoplayBlocked(false);
+                }).catch(() => {});
+              }
+              window.removeEventListener('pointerdown', retryOnGesture);
+              window.removeEventListener('touchstart', retryOnGesture);
+              window.removeEventListener('click', retryOnGesture);
+              window.removeEventListener('keydown', retryOnGesture);
+            };
+            window.addEventListener('pointerdown', retryOnGesture, { once: true, passive: true });
+            window.addEventListener('touchstart', retryOnGesture, { once: true, passive: true });
+            window.addEventListener('click', retryOnGesture, { once: true, passive: true });
+            window.addEventListener('keydown', retryOnGesture, { once: true, passive: true });
           });
         }
       } catch (err) {
         console.warn('[AudioAlarm] Error playing audioElement:', err);
+        this.setAutoplayBlocked(true);
       }
     }
 

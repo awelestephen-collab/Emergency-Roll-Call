@@ -198,15 +198,43 @@ export function IncidentProvider({ children }) {
     };
   }, []);
 
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(soundSynthesizer.isAutoplayBlocked);
+
+  // Subscribe to SoundSynthesizer autoplay blocked status changes
+  useEffect(() => {
+    return soundSynthesizer.onBlockedChange((blocked) => {
+      setIsAutoplayBlocked(blocked);
+    });
+  }, []);
+
+  // Guarantee that whenever an incident is active, the alarm sounds on this device immediately
+  useEffect(() => {
+    if (activeIncident && activeIncident.status === 'ACTIVE') {
+      if (!isAudioMuted) {
+        setIsSirenPlaying(true);
+        soundSynthesizer.startSiren();
+      }
+    } else if (!activeIncident || activeIncident.status !== 'ACTIVE') {
+      setIsSirenPlaying(false);
+      soundSynthesizer.stopSiren();
+    }
+  }, [activeIncident, isAudioMuted]);
+
   // Summary updater helper
   const applySummary = useCallback((summary) => {
     if (!summary) return;
-    if (summary.incident !== undefined) setActiveIncident(summary.incident);
+    if (summary.incident !== undefined) {
+      setActiveIncident(summary.incident);
+      if (summary.incident && summary.incident.status === 'ACTIVE' && !isAudioMuted) {
+        setIsSirenPlaying(true);
+        soundSynthesizer.startSiren();
+      }
+    }
     if (summary.isSirenPlaying !== undefined) {
       setIsSirenPlaying(summary.isSirenPlaying);
-      if (summary.isSirenPlaying) {
+      if (summary.isSirenPlaying && !isAudioMuted) {
         soundSynthesizer.startSiren();
-      } else {
+      } else if (!summary.isSirenPlaying) {
         soundSynthesizer.stopSiren();
       }
     }
@@ -222,7 +250,7 @@ export function IncidentProvider({ children }) {
         musterPointBreakdown: summary.musterPointBreakdown || {}
       });
     }
-  }, []);
+  }, [isAudioMuted]);
 
   const triggerEmergencySignal = useCallback((summary, source = 'unknown') => {
     const incidentId = summary?.incident?.id;
@@ -230,9 +258,11 @@ export function IncidentProvider({ children }) {
     if (acknowledgedIncidentRef.current === incidentId) return;
     acknowledgedIncidentRef.current = incidentId;
     console.info(`[AlertReceive] Emergency incident signal received via ${source}. incident=${incidentId}`);
-    soundSynthesizer.startSiren();
-    setIsSirenPlaying(true);
-  }, []);
+    if (!isAudioMuted) {
+      soundSynthesizer.startSiren();
+      setIsSirenPlaying(true);
+    }
+  }, [isAudioMuted]);
 
   // Socket.io initialization with silent failover for GitHub Pages and custom cloud hubs
   useEffect(() => {
@@ -772,6 +802,14 @@ export function IncidentProvider({ children }) {
         escalationStage,
         isSirenPlaying,
         isAudioMuted,
+        isAutoplayBlocked,
+        unlockAudio: () => {
+          soundSynthesizer.unlockAudio();
+          if (activeIncident && activeIncident.status === 'ACTIVE' && !isAudioMuted) {
+            soundSynthesizer.startSiren();
+            setIsSirenPlaying(true);
+          }
+        },
         toggleSiren,
         toggleMute,
         submitSelfCheckIn,
