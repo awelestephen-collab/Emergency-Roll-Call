@@ -171,7 +171,11 @@ export const pushService = {
         sent++;
       } catch (err) {
         failed++;
-        console.warn(`[PushService] Push failed for ${item.deviceInfo || 'device'} [${alertId}]:`, err.statusCode || err.message);
+        console.warn(
+          '[PushService] Push failed',
+          { deviceInfo: item.deviceInfo || 'device', alertId },
+          err.statusCode || err.message
+        );
         // HTTP 404 or 410 means subscription is permanently expired or unsubscribed
         if (err.statusCode === 404 || err.statusCode === 410) {
           expiredEndpoints.push(item.subscription.endpoint);
