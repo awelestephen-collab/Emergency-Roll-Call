@@ -18,6 +18,7 @@ import {
   VolumeX
 } from 'lucide-react';
 import { StaffManagerModal } from '../components/StaffManagerModal';
+import { soundSynthesizer } from '../components/AudioAlarm';
 
 export function StaffCheckInView() {
   const {
@@ -127,6 +128,34 @@ export function StaffCheckInView() {
             <span className="font-bold">Offline Resilience Active:</span> No cellular or Wi-Fi signal. You can still tap to check in; records will auto-sync once connectivity returns. ({offlineQueue.length} queued)
           </div>
         </div>
+      )}
+
+      {/* MOBILE UNMUTE / SOUND ALARM BANNER (GUARANTEED USER GESTURE AUDIO UNLOCK) */}
+      {activeIncident && (
+        <button
+          type="button"
+          onClick={() => {
+            soundSynthesizer.unlockAudio();
+            toggleSiren();
+          }}
+          className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl border-2 ${
+            isSirenPlaying
+              ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-300 animate-pulse'
+              : 'bg-red-600 hover:bg-red-500 text-white border-red-400'
+          }`}
+        >
+          {isSirenPlaying ? (
+            <>
+              <Volume2 className="w-5 h-5 animate-bounce" />
+              <span>SIREN RINGING • TAP TO SILENCE SIREN</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-5 h-5" />
+              <span>🚨 TAP HERE TO SOUND EVACUATION ALARM ON THIS PHONE</span>
+            </>
+          )}
+        </button>
       )}
 
       {/* EMERGENCY ACTIVE HERO BANNER */}

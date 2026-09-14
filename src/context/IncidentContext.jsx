@@ -419,9 +419,15 @@ export function IncidentProvider({ children }) {
   };
 
   const toggleMute = () => {
+    soundSynthesizer.unlockAudio();
     const muted = soundSynthesizer.toggleMute();
     setIsAudioMuted(muted);
-    if (muted) setIsSirenPlaying(false);
+    if (muted) {
+      setIsSirenPlaying(false);
+    } else if (activeIncident) {
+      soundSynthesizer.startSiren();
+      setIsSirenPlaying(true);
+    }
   };
 
   // Submit self check-in (works online & offline/static)

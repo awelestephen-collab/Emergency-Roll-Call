@@ -1,5 +1,5 @@
 // Service Worker for Emergency Roll Call PWA
-const CACHE_NAME = 'emergency-roll-call-v7';
+const CACHE_NAME = 'emergency-roll-call-v9';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -9,6 +9,7 @@ self.addEventListener('install', (event) => {
         scope,
         scope + 'index.html',
         scope + 'manifest.json',
+        scope + 'siren.wav',
         scope + 'icon-192.png',
         scope + 'icon-512.png',
         scope + 'apple-touch-icon.png'

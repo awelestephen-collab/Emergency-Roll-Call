@@ -6,20 +6,38 @@
 class SoundSynthesizer {
   constructor() {
     this.audioCtx = null;
+    this.audioElement = null;
     this.isMuted = false;
     this.sirenOscillator = null;
     this.sirenInterval = null;
+    this.isUnlocked = false;
+  }
+
+  unlockAudio() {
+    this.initContext();
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      this.audioCtx.resume().catch(() => {});
+    }
+    if (!this.audioElement && typeof window !== 'undefined') {
+      try {
+        const audio = new Audio('./siren.wav');
+        audio.loop = true;
+        audio.preload = 'auto';
+        this.audioElement = audio;
+      } catch (e) {}
+    }
+    this.isUnlocked = true;
   }
 
   initContext() {
-    if (!this.audioCtx) {
+    if (!this.audioCtx && typeof window !== 'undefined') {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (AudioContextClass) {
         this.audioCtx = new AudioContextClass();
       }
     }
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      this.audioCtx.resume().catch(() => {});
     }
   }
 
@@ -87,65 +105,84 @@ class SoundSynthesizer {
     }
   }
 
-  // Evacuation siren (loud pulsing high-low tone + hardware vibration)
+  // Evacuation siren (dual-layer: loud HTML5 audio + Web Audio oscillator + hardware vibration)
   startSiren() {
     if (this.isMuted) return;
+    this.unlockAudio();
     this.triggerVibration();
-    if (this.sirenOscillator) return;
 
-    try {
-      this.initContext();
-      if (!this.audioCtx) return;
-
-      let isHigh = false;
-      this.sirenOscillator = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
-      const compressor = this.audioCtx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-24, this.audioCtx.currentTime);
-      compressor.knee.setValueAtTime(20, this.audioCtx.currentTime);
-      compressor.ratio.setValueAtTime(12, this.audioCtx.currentTime);
-      compressor.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
-      compressor.release.setValueAtTime(0.25, this.audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.75, this.audioCtx.currentTime);
-
-      this.sirenOscillator.type = 'sawtooth';
-      this.sirenOscillator.frequency.setValueAtTime(650, this.audioCtx.currentTime);
-
-      this.sirenOscillator.connect(gain);
-      gain.connect(compressor);
-      compressor.connect(this.audioCtx.destination);
-      this.sirenOscillator.start();
-
-      this.sirenInterval = setInterval(() => {
-        if (!this.audioCtx || !this.sirenOscillator) return;
-        const now = this.audioCtx.currentTime;
-        const targetFreq = isHigh ? 650 : 980;
-        this.sirenOscillator.frequency.setTargetAtTime(targetFreq, now, 0.12);
-        isHigh = !isHigh;
-        if (isHigh) {
-          this.triggerVibration();
-        }
-      }, 500);
-
-      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-        try {
-          navigator.mediaSession.metadata = new MediaMetadata({
-            title: 'EMERGENCY EVACUATION SIREN ACTIVE',
-            artist: 'Life Safety Roll Call',
-            album: 'Muster Alarm System'
+    // 1. Play native HTML5 audio element (loudest and most reliable on mobile media stream)
+    if (this.audioElement) {
+      try {
+        this.audioElement.currentTime = 0;
+        const playPromise = this.audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn('[AudioAlarm] HTML5 audio play blocked:', err);
           });
-          navigator.mediaSession.playbackState = 'playing';
-        } catch (mErr) {}
+        }
+      } catch (err) {
+        console.warn('[AudioAlarm] Error playing audioElement:', err);
       }
-    } catch (e) {
-      console.warn('Siren start error:', e);
+    }
+
+    // 2. Synthesize piercing Web Audio oscillator layer
+    if (!this.sirenOscillator) {
+      try {
+        this.initContext();
+        if (this.audioCtx) {
+          let isHigh = false;
+          this.sirenOscillator = this.audioCtx.createOscillator();
+          const gain = this.audioCtx.createGain();
+          const compressor = this.audioCtx.createDynamicsCompressor();
+          compressor.threshold.setValueAtTime(-24, this.audioCtx.currentTime);
+          compressor.knee.setValueAtTime(20, this.audioCtx.currentTime);
+          compressor.ratio.setValueAtTime(12, this.audioCtx.currentTime);
+          compressor.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
+          compressor.release.setValueAtTime(0.25, this.audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.85, this.audioCtx.currentTime);
+
+          this.sirenOscillator.type = 'sawtooth';
+          this.sirenOscillator.frequency.setValueAtTime(650, this.audioCtx.currentTime);
+
+          this.sirenOscillator.connect(gain);
+          gain.connect(compressor);
+          compressor.connect(this.audioCtx.destination);
+          this.sirenOscillator.start();
+
+          this.sirenInterval = setInterval(() => {
+            if (!this.audioCtx || !this.sirenOscillator) return;
+            const now = this.audioCtx.currentTime;
+            const targetFreq = isHigh ? 650 : 980;
+            this.sirenOscillator.frequency.setTargetAtTime(targetFreq, now, 0.12);
+            isHigh = !isHigh;
+            if (isHigh) {
+              this.triggerVibration();
+            }
+          }, 500);
+        }
+      } catch (e) {
+        console.warn('Siren oscillator start error:', e);
+      }
+    }
+
+    // 3. Register with OS lock screen media controls
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: '🚨 EMERGENCY EVACUATION SIREN ACTIVE',
+          artist: 'Life Safety Roll Call',
+          album: 'Muster Alarm System'
+        });
+        navigator.mediaSession.playbackState = 'playing';
+      } catch (mErr) {}
     }
   }
 
   triggerVibration() {
     try {
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate([400, 150, 400]);
+        navigator.vibrate([600, 200, 600, 200, 600, 200, 1000]);
       }
     } catch {}
   }
@@ -156,6 +193,13 @@ class SoundSynthesizer {
         navigator.vibrate(0);
       }
     } catch {}
+
+    if (this.audioElement) {
+      try {
+        this.audioElement.pause();
+        this.audioElement.currentTime = 0;
+      } catch (e) {}
+    }
 
     if (this.sirenInterval) {
       clearInterval(this.sirenInterval);
@@ -177,3 +221,16 @@ class SoundSynthesizer {
 }
 
 export const soundSynthesizer = new SoundSynthesizer();
+
+// Global touch & click listener: The very first user touch on a smartphone immediately unlocks audio
+if (typeof window !== 'undefined') {
+  const unlockListener = () => {
+    soundSynthesizer.unlockAudio();
+    window.removeEventListener('pointerdown', unlockListener);
+    window.removeEventListener('touchstart', unlockListener);
+    window.removeEventListener('click', unlockListener);
+  };
+  window.addEventListener('pointerdown', unlockListener, { passive: true });
+  window.addEventListener('touchstart', unlockListener, { passive: true });
+  window.addEventListener('click', unlockListener, { passive: true });
+}
