@@ -31,16 +31,36 @@ export function ServerConfigModal({ isOpen, onClose, isConnected }) {
     setIsTesting(true);
     setTestResult(null);
     const target = serverUrl.trim().replace(/\/+$/, '');
+
+    // If user entered a static host (e.g. vercel.app, github.io), guide them to the Node.js backend
+    if (target.includes('vercel.app') || target.includes('github.io') || target.includes('netlify.app')) {
+      setTestResult({
+        success: false,
+        message: 'Static hosting platforms (Vercel/GitHub Pages) cannot run WebSockets or Node APIs. Tap "Use Render Cloud Hub" below to connect to the live backend server.'
+      });
+      setIsTesting(false);
+      return;
+    }
+
     const healthUrl = target ? `${target}/api/health` : '/api/health';
 
     try {
-      const res = await fetch(healthUrl, { method: 'GET', signal: AbortSignal.timeout(5000) });
+      const res = await fetch(healthUrl, { method: 'GET', signal: AbortSignal.timeout(6000) });
       if (res.ok) {
-        const data = await res.json();
-        setTestResult({
-          success: true,
-          message: `Connected successfully! Server is active (Status: ${data.status || 'OK'}).`
-        });
+        const text = await res.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch {}
+        if (data && data.status) {
+          setTestResult({
+            success: true,
+            message: `Connected successfully! Server is active (Status: ${data.status || 'OK'}).`
+          });
+        } else {
+          setTestResult({
+            success: false,
+            message: 'Endpoint returned non-API HTML. Ensure this is the Node.js Express server URL, not a static webpage.'
+          });
+        }
       } else {
         setTestResult({
           success: false,
@@ -129,22 +149,34 @@ export function ServerConfigModal({ isOpen, onClose, isConnected }) {
                 type="url"
                 value={serverUrl}
                 onChange={(e) => setInputServerUrl(e.target.value)}
-                placeholder="https://emergency-roll-call.onrender.com"
+                placeholder="https://falcon-emergency-roll-call.onrender.com"
                 className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-red-500"
               />
             </div>
             <button
               onClick={handleTest}
               disabled={isTesting}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
             >
               {isTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Radio className="w-3.5 h-3.5" />}
               <span>Test</span>
             </button>
           </div>
-          <p className="text-[11px] text-slate-400">
-            Enter your deployed server URL (e.g. Render, Railway, or local testing IP).
-          </p>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <p className="text-[11px] text-slate-400">
+              WebSocket backend server URL (must be Node.js server, not static host).
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setInputServerUrl('https://falcon-emergency-roll-call.onrender.com');
+                setTestResult(null);
+              }}
+              className="text-[11px] text-red-400 hover:text-red-300 font-bold underline whitespace-nowrap cursor-pointer"
+            >
+              Use Render Cloud Hub
+            </button>
+          </div>
         </div>
 
         {/* Test Result Message */}

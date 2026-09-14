@@ -23,13 +23,15 @@ export function getBackendUrl() {
     if (port === '5173') {
       return `http://${hostname}:3001`;
     }
-    // If served from Express directly (port 3001) or custom domain/LAN IP, use origin
-    if (port === '3001' || (hostname !== 'localhost' && !hostname.includes('github.io'))) {
+    // If served from Express backend directly (port 3001) or custom backend domain, use origin
+    // Note: Vercel, Netlify, and GitHub Pages host static frontend files only, so they must use the Render Cloud Hub
+    const isStaticHost = hostname.includes('github.io') || hostname.includes('vercel.app') || hostname.includes('netlify.app');
+    if (port === '3001' || (!isStaticHost && hostname !== 'localhost')) {
       return origin;
     }
   }
 
-  // 4. Default production cloud hub for GitHub Pages / static hosting
+  // 4. Default production cloud hub for all devices & static hosting (Vercel, GitHub Pages)
   return 'https://falcon-emergency-roll-call.onrender.com';
 }
 

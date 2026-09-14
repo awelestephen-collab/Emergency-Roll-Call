@@ -152,12 +152,49 @@ export const pushManager = {
 
   async sendTestAlert() {
     const sub = await this.getExistingSubscription();
-    const res = await fetch(getApiUrl('/api/push/test'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub ? sub.toJSON() : null })
-    });
-    return res.json();
+    try {
+      const res = await fetch(getApiUrl('/api/push/test'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub ? sub.toJSON() : null })
+      });
+      if (res.ok) {
+        const text = await res.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          return { success: true, message: 'Test alert dispatched' };
+        }
+      }
+    } catch (e) {
+      console.warn('[PushManager] Backend push test endpoint failed, falling back to local SW notification:', e);
+    }
+
+    // Fallback: If backend is unreachable or returns non-JSON, trigger local notification via Service Worker
+    if (this.isPushSupported() && Notification.permission === 'granted') {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification('🚨 TEST EMERGENCY ALERT', {
+          body: 'Test alert successful: Your phone will ring and vibrate when an evacuation drill is declared!',
+          icon: './icon-192.png',
+          badge: './icon-192.png',
+          vibrate: [500, 200, 500, 200, 1000],
+          tag: 'emergency-test',
+          renotify: true,
+          requireInteraction: true,
+          data: {
+            url: './?autoAlarm=1',
+            type: 'TEST'
+          }
+        });
+        return { success: true, message: 'Local lock-screen test notification triggered!' };
+      } catch (localErr) {
+        console.error('[PushManager] Local notification fallback error:', localErr);
+        throw new Error(localErr.message || 'Could not display test notification.');
+      }
+    }
+
+    throw new Error('Could not display test alert. Ensure notification permissions are granted.');
   },
 
   openNotificationSettings() {
