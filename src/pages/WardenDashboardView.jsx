@@ -35,6 +35,8 @@ export function WardenDashboardView() {
     elapsedSeconds,
     escalationStage,
     isSirenPlaying,
+    soundPermission,
+    grantSoundPermission,
     toggleSiren,
     submitWardenOverride,
     declareEmergency,
@@ -203,15 +205,37 @@ export function WardenDashboardView() {
           {activeIncident ? (
             <>
               <button
-                onClick={toggleSiren}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow ${
-                  isSirenPlaying
+                onClick={() => {
+                  if (soundPermission !== 'granted') {
+                    grantSoundPermission();
+                  } else {
+                    toggleSiren();
+                  }
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow cursor-pointer ${
+                  soundPermission !== 'granted'
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 animate-pulse'
+                    : isSirenPlaying
                     ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 animate-bounce'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                 }`}
               >
-                {isSirenPlaying ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                <span>{isSirenPlaying ? 'Silence Siren' : 'Trigger Alarm Siren'}</span>
+                {soundPermission !== 'granted' ? (
+                  <>
+                    <Volume2 className="w-4 h-4" />
+                    <span>Allow & Trigger Siren</span>
+                  </>
+                ) : isSirenPlaying ? (
+                  <>
+                    <Volume2 className="w-4 h-4" />
+                    <span>Silence Siren</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-4 h-4" />
+                    <span>Trigger Alarm Siren</span>
+                  </>
+                )}
               </button>
 
               <button

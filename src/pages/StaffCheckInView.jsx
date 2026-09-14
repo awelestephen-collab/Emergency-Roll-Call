@@ -33,6 +33,8 @@ export function StaffCheckInView() {
     declareEmergency,
     roster,
     isSirenPlaying,
+    soundPermission,
+    grantSoundPermission,
     toggleSiren
   } = useIncident();
 
@@ -135,16 +137,27 @@ export function StaffCheckInView() {
         <button
           type="button"
           onClick={() => {
-            soundSynthesizer.unlockAudio();
-            toggleSiren();
+            if (soundPermission !== 'granted') {
+              grantSoundPermission();
+            } else {
+              soundSynthesizer.unlockAudio();
+              toggleSiren();
+            }
           }}
-          className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl border-2 ${
-            isSirenPlaying
+          className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl border-2 cursor-pointer ${
+            soundPermission !== 'granted'
+              ? 'bg-red-600 hover:bg-red-500 text-white border-amber-300 animate-pulse'
+              : isSirenPlaying
               ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-300 animate-pulse'
               : 'bg-red-600 hover:bg-red-500 text-white border-red-400'
           }`}
         >
-          {isSirenPlaying ? (
+          {soundPermission !== 'granted' ? (
+            <>
+              <Volume2 className="w-5 h-5 animate-bounce text-amber-300" />
+              <span>🚨 TAP HERE TO ALLOW SOUND & START EVACUATION SIREN</span>
+            </>
+          ) : isSirenPlaying ? (
             <>
               <Volume2 className="w-5 h-5 animate-bounce" />
               <span>SIREN RINGING • TAP TO SILENCE SIREN</span>
@@ -187,15 +200,34 @@ export function StaffCheckInView() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={toggleSiren}
+                onClick={() => {
+                  if (soundPermission !== 'granted') {
+                    grantSoundPermission();
+                  } else {
+                    toggleSiren();
+                  }
+                }}
                 className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow ${
-                  isSirenPlaying
+                  soundPermission !== 'granted'
+                    ? 'bg-red-700 hover:bg-red-600 text-amber-300 animate-pulse'
+                    : isSirenPlaying
                     ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 animate-pulse'
                     : 'bg-red-700 hover:bg-red-600 text-white'
                 }`}
-                title={isSirenPlaying ? 'Mute siren on this phone' : 'Sound siren on this phone'}
+                title={
+                  soundPermission !== 'granted'
+                    ? 'Enable sound on this device'
+                    : isSirenPlaying
+                    ? 'Mute siren on this phone'
+                    : 'Sound siren on this phone'
+                }
               >
-                {isSirenPlaying ? (
+                {soundPermission !== 'granted' ? (
+                  <>
+                    <Volume2 className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Allow Sound</span>
+                  </>
+                ) : isSirenPlaying ? (
                   <>
                     <VolumeX className="w-3.5 h-3.5" />
                     <span>Silence Siren</span>

@@ -158,7 +158,6 @@ export function IncidentProvider({ children }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [escalationStage, setEscalationStage] = useState('NORMAL');
   const [isSirenPlaying, setIsSirenPlaying] = useState(false);
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
 
   const socketRef = useRef(null);
   const acknowledgedIncidentRef = useRef(null);
@@ -199,6 +198,9 @@ export function IncidentProvider({ children }) {
   }, []);
 
   const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(soundSynthesizer.isAutoplayBlocked);
+  const [soundPermission, setSoundPermission] = useState(soundSynthesizer.getSoundPermission());
+  // Do not enable sound by default; isAudioMuted reflects whether sound is allowed and unmuted
+  const [isAudioMuted, setIsAudioMuted] = useState(soundSynthesizer.soundPermission !== 'granted' || soundSynthesizer.isMuted);
 
   // Subscribe to SoundSynthesizer autoplay blocked status changes
   useEffect(() => {
@@ -207,10 +209,18 @@ export function IncidentProvider({ children }) {
     });
   }, []);
 
-  // Guarantee that whenever an incident is active, the alarm sounds on this device immediately
+  // Subscribe to SoundSynthesizer sound permission changes
+  useEffect(() => {
+    return soundSynthesizer.onPermissionChange((perm) => {
+      setSoundPermission(perm);
+      setIsAudioMuted(perm !== 'granted' || soundSynthesizer.isMuted);
+    });
+  }, []);
+
+  // Guarantee that whenever an incident is active, the alarm sounds on this device if sound is permitted
   useEffect(() => {
     if (activeIncident && activeIncident.status === 'ACTIVE') {
-      if (!isAudioMuted) {
+      if (soundPermission === 'granted' && !isAudioMuted) {
         setIsSirenPlaying(true);
         soundSynthesizer.startSiren();
       }
@@ -218,7 +228,7 @@ export function IncidentProvider({ children }) {
       setIsSirenPlaying(false);
       soundSynthesizer.stopSiren();
     }
-  }, [activeIncident, isAudioMuted]);
+  }, [activeIncident, soundPermission, isAudioMuted]);
 
   // Summary updater helper
   const applySummary = useCallback((summary) => {
@@ -803,9 +813,13 @@ export function IncidentProvider({ children }) {
         isSirenPlaying,
         isAudioMuted,
         isAutoplayBlocked,
+        soundPermission,
+        grantSoundPermission: () => soundSynthesizer.grantSoundPermission(),
+        declineSoundPermission: () => soundSynthesizer.declineSoundPermission(),
+        resetSoundPermission: () => soundSynthesizer.resetSoundPermission(),
         unlockAudio: () => {
           soundSynthesizer.unlockAudio();
-          if (activeIncident && activeIncident.status === 'ACTIVE' && !isAudioMuted) {
+          if (activeIncident && activeIncident.status === 'ACTIVE' && soundPermission === 'granted' && !isAudioMuted) {
             soundSynthesizer.startSiren();
             setIsSirenPlaying(true);
           }

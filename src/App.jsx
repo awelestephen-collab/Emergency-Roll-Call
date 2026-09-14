@@ -7,6 +7,7 @@ import { InstallModal } from './components/InstallModal';
 import { ServerConfigModal } from './components/ServerConfigModal';
 import { NotificationBanner } from './components/NotificationBanner';
 import { NotificationModal } from './components/NotificationModal';
+import { SoundPermissionModal } from './components/SoundPermissionModal';
 import { soundSynthesizer } from './components/AudioAlarm';
 import {
   ShieldAlert,
@@ -38,6 +39,8 @@ function AppContent() {
     }
   }, []);
 
+  const [showSoundPermissionModal, setShowSoundPermissionModal] = useState(false);
+
   const {
     activeIncident,
     isOnline,
@@ -45,9 +48,20 @@ function AppContent() {
     isAudioMuted,
     isSirenPlaying,
     isAutoplayBlocked,
+    soundPermission,
+    grantSoundPermission,
+    declineSoundPermission,
+    resetSoundPermission,
     unlockAudio,
     toggleMute
   } = useIncident();
+
+  // Always request permission if it's not enabled already (do not enable by default)
+  useEffect(() => {
+    if (soundPermission === 'prompt') {
+      setShowSoundPermissionModal(true);
+    }
+  }, [soundPermission]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -91,17 +105,37 @@ function AppContent() {
               </div>
             )}
 
-            {/* Audio Siren / Mute Toggle */}
+            {/* Audio Siren / Sound Permission Toggle */}
             <button
-              onClick={toggleMute}
+              onClick={() => {
+                if (soundPermission !== 'granted') {
+                  setShowSoundPermissionModal(true);
+                } else {
+                  toggleMute();
+                }
+              }}
               className={`p-2 rounded-xl border transition-colors ${
-                isAudioMuted
+                soundPermission !== 'granted'
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30 animate-pulse'
+                  : isAudioMuted
                   ? 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
                   : 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
               }`}
-              title={isAudioMuted ? 'Unmute safety sirens & chimes' : 'Mute sound'}
+              title={
+                soundPermission !== 'granted'
+                  ? 'Sound not enabled on this device • Tap to enable siren permissions'
+                  : isAudioMuted
+                  ? 'Sound muted • Tap to unmute siren'
+                  : 'Sound enabled • Tap to mute siren'
+              }
             >
-              {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {soundPermission !== 'granted' ? (
+                <VolumeX className="w-4 h-4 text-amber-400" />
+              ) : isAudioMuted ? (
+                <VolumeX className="w-4 h-4" />
+              ) : (
+                <Volume2 className="w-4 h-4 text-amber-400" />
+              )}
             </button>
 
             {/* Connectivity Badge */}
@@ -204,8 +238,47 @@ function AppContent() {
         </div>
       </header>
 
+      {/* SOUND PERMISSION PROMPT BANNER (ALWAYS PROMPT IF SOUND NOT ENABLED ON THIS DEVICE) */}
+      {soundPermission !== 'granted' && (
+        <div className="max-w-7xl mx-auto px-4 pt-2">
+          <div className="relative overflow-hidden bg-gradient-to-r from-amber-950/80 via-slate-900 to-red-950/70 border-2 border-amber-500/70 rounded-2xl p-4 shadow-xl text-white">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500 text-amber-300 animate-pulse flex-shrink-0">
+                  <Volume2 className="w-6 h-6 text-amber-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-sm sm:text-base text-white tracking-tight">
+                      Device Sound Permission Required
+                    </span>
+                    <span className="text-[10px] uppercase font-extrabold bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">
+                      Action Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                    Alarm siren is disabled by default on this device. Grant permission to allow safety sirens and audible roll-call alerts to ring out during drills and evacuations.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowSoundPermissionModal(true)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg cursor-pointer"
+                >
+                  <Volume2 className="w-4 h-4" />
+                  <span>Allow Sound</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* AUTOPLAY UNLOCK BANNER FOR MOBILE BROWSERS & PWAs */}
-      {activeIncident && isAutoplayBlocked && (
+      {activeIncident && soundPermission === 'granted' && isAutoplayBlocked && (
         <div
           onClick={unlockAudio}
           role="button"
@@ -259,6 +332,20 @@ function AppContent() {
       <NotificationModal
         isOpen={showNotificationModal}
         onClose={() => setShowNotificationModal(false)}
+      />
+
+      {/* SOUND PERMISSION REQUEST MODAL (ALWAYS REQUEST IF NOT ENABLED ALREADY) */}
+      <SoundPermissionModal
+        isOpen={showSoundPermissionModal}
+        onGrant={() => {
+          grantSoundPermission();
+          setShowSoundPermissionModal(false);
+        }}
+        onDecline={() => {
+          declineSoundPermission();
+          setShowSoundPermissionModal(false);
+        }}
+        activeIncident={activeIncident}
       />
     </div>
   );

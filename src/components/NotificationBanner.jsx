@@ -4,7 +4,7 @@ import { pushManager } from '../services/pushManager';
 import { useIncident } from '../context/IncidentContext';
 
 export function NotificationBanner() {
-  const { currentUser } = useIncident();
+  const { currentUser, grantSoundPermission } = useIncident();
   const [permission, setPermission] = useState('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,13 +31,16 @@ export function NotificationBanner() {
     setIsLoading(true);
     setTestStatus('');
     try {
+      if (grantSoundPermission) {
+        grantSoundPermission();
+      }
       await pushManager.subscribe({
         staffId: currentUser?.id,
         staffName: currentUser?.name
       });
       setPermission('granted');
       setIsSubscribed(true);
-      setTestStatus('✅ Alerts enabled! Tap "Test Phone Alert" below to test.');
+      setTestStatus('✅ Alerts & sound enabled! Tap "Test Phone Alert" below to test.');
     } catch (err) {
       console.error('[NotificationBanner] Subscription failed:', err);
       setPermission(pushManager.getPermissionStatus());

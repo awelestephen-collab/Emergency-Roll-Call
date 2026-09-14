@@ -3,16 +3,68 @@
  * Uses HTML5 Web Audio API to synthesize emergency sirens, attention tones, and check-in confirmation chimes.
  */
 
+const STORAGE_KEY_SOUND_PERM = 'emergency_sound_permission'; // 'granted', 'denied', or null
+
 class SoundSynthesizer {
   constructor() {
     this.audioCtx = null;
     this.audioElement = null;
-    this.isMuted = false;
+    // Sound permission state: 'prompt' (not enabled by default), 'granted', or 'denied'
+    this.soundPermission = typeof window !== 'undefined'
+      ? (localStorage.getItem(STORAGE_KEY_SOUND_PERM) || 'prompt')
+      : 'prompt';
+    // If not granted, muted is true (do not enable by default)
+    this.isMuted = this.soundPermission !== 'granted';
     this.sirenOscillator = null;
     this.sirenInterval = null;
     this.isUnlocked = false;
     this.isAutoplayBlocked = false;
     this.blockedListeners = new Set();
+    this.permissionListeners = new Set();
+  }
+
+  getSoundPermission() {
+    return this.soundPermission;
+  }
+
+  isSoundEnabled() {
+    return this.soundPermission === 'granted' && !this.isMuted;
+  }
+
+  onPermissionChange(callback) {
+    this.permissionListeners.add(callback);
+    callback(this.soundPermission);
+    return () => this.permissionListeners.delete(callback);
+  }
+
+  grantSoundPermission() {
+    this.soundPermission = 'granted';
+    this.isMuted = false;
+    try {
+      localStorage.setItem(STORAGE_KEY_SOUND_PERM, 'granted');
+    } catch {}
+    this.unlockAudio();
+    this.permissionListeners.forEach(cb => cb('granted'));
+  }
+
+  declineSoundPermission() {
+    this.soundPermission = 'denied';
+    this.isMuted = true;
+    this.stopSiren();
+    try {
+      localStorage.setItem(STORAGE_KEY_SOUND_PERM, 'denied');
+    } catch {}
+    this.permissionListeners.forEach(cb => cb('denied'));
+  }
+
+  resetSoundPermission() {
+    this.soundPermission = 'prompt';
+    this.isMuted = true;
+    this.stopSiren();
+    try {
+      localStorage.removeItem(STORAGE_KEY_SOUND_PERM);
+    } catch {}
+    this.permissionListeners.forEach(cb => cb('prompt'));
   }
 
   onBlockedChange(callback) {
@@ -63,6 +115,10 @@ class SoundSynthesizer {
   }
 
   toggleMute() {
+    if (this.soundPermission !== 'granted') {
+      this.grantSoundPermission();
+      return false; // Not muted
+    }
     this.isMuted = !this.isMuted;
     if (this.isMuted) {
       this.stopSiren();
@@ -72,7 +128,7 @@ class SoundSynthesizer {
 
   // Pleasant double chime for successful check-in
   playSafeChime() {
-    if (this.isMuted) return;
+    if (!this.isSoundEnabled()) return;
     try {
       this.initContext();
       if (!this.audioCtx) return;
@@ -100,7 +156,7 @@ class SoundSynthesizer {
 
   // Attention alert tone (two quick beeps)
   playWarningBeep() {
-    if (this.isMuted) return;
+    if (!this.isSoundEnabled()) return;
     try {
       this.initContext();
       if (!this.audioCtx) return;
@@ -128,7 +184,10 @@ class SoundSynthesizer {
 
   // Evacuation siren (dual-layer: loud HTML5 audio + Web Audio oscillator + hardware vibration)
   startSiren() {
-    if (this.isMuted) return;
+    if (!this.isSoundEnabled()) {
+      console.info('[AudioAlarm] Sound permission not granted or muted. Siren held until user grants permission.');
+      return;
+    }
     this.unlockAudio();
     this.triggerVibration();
 

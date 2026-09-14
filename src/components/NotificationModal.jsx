@@ -16,7 +16,7 @@ import { getApiUrl } from '../config/api';
 import { useIncident } from '../context/IncidentContext';
 
 export function NotificationModal({ isOpen, onClose }) {
-  const { currentUser } = useIncident();
+  const { currentUser, soundPermission, grantSoundPermission, resetSoundPermission } = useIncident();
   const [permission, setPermission] = useState('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -148,6 +148,19 @@ export function NotificationModal({ isOpen, onClose }) {
           </div>
 
           <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-400 font-medium">Device Sound Permission:</span>
+            <span
+              className={`font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                soundPermission === 'granted'
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+              }`}
+            >
+              {soundPermission === 'granted' ? 'Allowed / Enabled' : 'Disabled (Prompt Required)'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 font-medium">Device Push Subscription:</span>
             <span
               className={`font-bold px-2 py-0.5 rounded-full ${
@@ -231,6 +244,29 @@ export function NotificationModal({ isOpen, onClose }) {
               </button>
             </div>
           )}
+
+          {/* Sound Permission Action Toggle */}
+          <div className="pt-1">
+            {soundPermission !== 'granted' ? (
+              <button
+                type="button"
+                onClick={() => grantSoundPermission()}
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow cursor-pointer"
+              >
+                <Volume2 className="w-4 h-4" />
+                <span>Grant Siren Sound Permission on This Device</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => resetSoundPermission()}
+                className="w-full py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer border border-slate-700"
+              >
+                <VolumeX className="w-4 h-4" />
+                <span>Reset / Re-prompt Sound Permission</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* OS Specific Instructions */}
