@@ -29,7 +29,8 @@ export function createCheckInRouter(io) {
       res.status(200).json({
         success: true,
         message: 'Check-in recorded successfully',
-        staffRecord: staff
+        staffRecord: staff,
+        summary
       });
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -60,7 +61,8 @@ export function createCheckInRouter(io) {
       res.json({
         success: true,
         message: 'Status updated by warden',
-        staffRecord: staff
+        staffRecord: staff,
+        summary
       });
     } catch (err) {
       res.status(400).json({ error: err.message });

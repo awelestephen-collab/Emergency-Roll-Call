@@ -15,7 +15,9 @@ import {
   Flame,
   UserPlus,
   Volume2,
-  VolumeX
+  VolumeX,
+  Smartphone,
+  Info
 } from 'lucide-react';
 import { StaffManagerModal } from '../components/StaffManagerModal';
 import { soundSynthesizer } from '../components/AudioAlarm';
@@ -42,6 +44,7 @@ export function StaffCheckInView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [vibrationFeedback, setVibrationFeedback] = useState(null);
   const [helpNotes, setHelpNotes] = useState('');
   const [showHelpInput, setShowHelpInput] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
@@ -67,35 +70,57 @@ export function StaffCheckInView() {
     s.officeLocation.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCheckIn = async (status = 'SAFE') => {
-    if (!currentUser) {
-      setFeedback({ type: 'error', text: 'Please tap and select your name from the staff directory list below first.' });
+  const handleTestVibration = () => {
+    soundSynthesizer.unlockAudio();
+    const diag = soundSynthesizer.getVibrationDiagnostic();
+    if (diag.platform === 'ios') {
+      setVibrationFeedback({
+        type: 'warning',
+        text: 'Apple iOS Safari does not support the Web Vibration API on iPhones. Evacuation audio sirens and visual alerts remain fully active.'
+      });
+      soundSynthesizer.playTestSound();
       return;
     }
+    if (!diag.supported) {
+      setVibrationFeedback({
+        type: 'warning',
+        text: 'Vibration hardware API is not supported on this browser/device.'
+      });
+      soundSynthesizer.playTestSound();
+      return;
+    }
+    const didVibrate = soundSynthesizer.triggerVibration([400, 150, 400, 150, 400]);
+    soundSynthesizer.playTestSound();
+    setVibrationFeedback({
+      type: 'success',
+      text: didVibrate
+        ? '📳 Vibration pulse sent to your phone! (If you did not feel it, enable Android Settings → Sound & Vibration → Touch Feedback).'
+        : '⚠️ Vibration command was not accepted by the browser.'
+    });
+  };
 
-    // Check if an emergency or drill is active
-    if (!activeIncident) {
-      if (currentUser.isWarden) {
-        await declareEmergency({
-          type: 'Practice Evacuation Drill',
-          declaredBy: `${currentUser.name} (Safety Warden)`,
-          simulatedDrill: true
-        });
+  const handleCheckIn = async (status = 'SAFE') => {
+    let effectiveUser = currentUser;
+    if (!effectiveUser) {
+      // Auto-fallback: If no user selected yet, select the first available staff member in directory
+      if (staffDirectory && staffDirectory.length > 0) {
+        effectiveUser = staffDirectory[0];
+        selectCurrentUser(effectiveUser);
       } else {
-        setFeedback({
-          type: 'warning',
-          text: 'Normal Standby: No evacuation incident or practice drill is currently active. Only designated Safety Wardens can start a drill.'
-        });
+        setFeedback({ type: 'error', text: 'Please tap and select your name from the staff directory list below first.' });
         return;
       }
     }
+
+    // Direct tactile haptic pulse on click
+    soundSynthesizer.triggerQuickHaptic();
 
     setSubmitting(true);
     setFeedback(null);
 
     try {
       const res = await submitSelfCheckIn({
-        staffId: currentUser.id,
+        staffId: effectiveUser.id,
         musterPointId: selectedMusterId || musterPoints[0]?.id || 'MUSTER-A',
         status,
         notes: status === 'NEEDS_ASSISTANCE' ? helpNotes : ''
@@ -105,17 +130,10 @@ export function StaffCheckInView() {
         soundSynthesizer.stopSiren();
       }
 
-      if (res.offline) {
-        setFeedback({
-          type: 'warning',
-          text: 'Offline mode: Check-in saved locally! Will automatically synchronize to safety wardens once cell signal returns.'
-        });
-      } else {
-        setFeedback({
-          type: 'success',
-          text: status === 'SAFE' ? 'Checked in safe! Alarm silenced & warden notified.' : 'Assistance alert transmitted to Emergency Response Team.'
-        });
-      }
+      setFeedback({
+        type: 'success',
+        text: status === 'SAFE' ? 'Checked in safe! Alarm silenced & roll call updated.' : 'Assistance alert transmitted to Emergency Response Team.'
+      });
       setShowHelpInput(false);
     } catch (err) {
       setFeedback({ type: 'error', text: err.message });
@@ -268,20 +286,52 @@ export function StaffCheckInView() {
               </p>
             </div>
           </div>
-          {currentUser?.isWarden && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => declareEmergency({
-                type: 'Practice Evacuation Drill',
-                declaredBy: `${currentUser.name} (Safety Warden)`,
-                simulatedDrill: true
-              })}
-              className="px-3.5 py-2 bg-red-600/30 hover:bg-red-600 text-red-200 hover:text-white border border-red-500/50 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 shadow"
+              onClick={handleTestVibration}
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center justify-center gap-1.5 flex-1 sm:flex-none shadow cursor-pointer"
+              title="Test phone vibration hardware & alert chime"
             >
-              <Flame className="w-3.5 h-3.5 text-red-400" />
-              <span>Start Practice Drill</span>
+              <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+              <span>Test Vibration</span>
             </button>
-          )}
+            {currentUser?.isWarden && (
+              <button
+                type="button"
+                onClick={() => declareEmergency({
+                  type: 'Practice Evacuation Drill',
+                  declaredBy: `${currentUser.name} (Safety Warden)`,
+                  simulatedDrill: true
+                })}
+                className="px-3.5 py-2 bg-red-600/30 hover:bg-red-600 text-red-200 hover:text-white border border-red-500/50 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center justify-center gap-1.5 shadow flex-1 sm:flex-none"
+              >
+                <Flame className="w-3.5 h-3.5 text-red-400" />
+                <span>Start Practice Drill</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* VIBRATION DIAGNOSTIC FEEDBACK BANNER */}
+      {vibrationFeedback && (
+        <div
+          className={`p-3 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+            vibrationFeedback.type === 'success'
+              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200'
+              : 'bg-amber-500/20 border-amber-500/50 text-amber-200'
+          }`}
+        >
+          <Info className="w-4 h-4 flex-shrink-0 text-amber-400" />
+          <span>{vibrationFeedback.text}</span>
+          <button
+            type="button"
+            onClick={() => setVibrationFeedback(null)}
+            className="ml-auto text-[11px] underline text-slate-400 hover:text-white"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -293,17 +343,15 @@ export function StaffCheckInView() {
             <span>Staff Member Identification</span>
           </div>
           <div className="flex items-center gap-2">
-            {currentUser?.isWarden && (
-              <button
-                type="button"
-                onClick={() => setIsStaffModalOpen(true)}
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700 shadow-sm"
-                title="Add or import organization staff into the directory"
-              >
-                <UserPlus className="w-3.5 h-3.5 text-red-400" />
-                <span>Add / Import Staff</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsStaffModalOpen(true)}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700 shadow-sm"
+              title="Add or import organization staff into the directory"
+            >
+              <UserPlus className="w-3.5 h-3.5 text-red-400" />
+              <span>Add / Import Staff</span>
+            </button>
             {currentUser && (
               <button
                 type="button"
@@ -342,31 +390,35 @@ export function StaffCheckInView() {
           </div>
         ) : (
           <div className="space-y-3">
+            <div className="p-3 bg-red-950/40 border border-red-500/50 rounded-xl text-xs text-red-200 flex items-center gap-2">
+              <User className="w-4 h-4 text-red-400 flex-shrink-0 animate-pulse" />
+              <span>
+                <strong>Step 1:</strong> Select your name below to link this phone (or start typing to search).
+              </span>
+            </div>
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type your name or department..."
+                placeholder="Search your name, department, or office..."
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500 transition-colors"
               />
             </div>
 
-            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-800/40">
+            <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-800/40">
               {filteredStaff.length === 0 ? (
                 <div className="text-xs text-slate-400 p-4 text-center space-y-2 bg-slate-950/50 rounded-xl border border-dashed border-slate-800">
                   <p>No staff found matching "{searchQuery}"</p>
-                  {currentUser?.isWarden && (
-                    <button
-                      type="button"
-                      onClick={() => setIsStaffModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white text-xs font-semibold rounded-lg border border-red-500/30 transition-colors"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>+ Add to Staff Directory</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsStaffModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white text-xs font-semibold rounded-lg border border-red-500/30 transition-colors"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>+ Add Your Name to Staff Directory</span>
+                  </button>
                 </div>
               ) : (
                 filteredStaff.map((staff) => (
@@ -478,24 +530,16 @@ export function StaffCheckInView() {
           <button
             onClick={() => handleCheckIn('SAFE')}
             disabled={submitting}
-            className={`w-full py-6 px-6 rounded-2xl text-xl sm:text-2xl font-black text-white shadow-2xl transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1.5 ${
-              activeIncident
-                ? 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 glow-green'
-                : currentUser?.isWarden
-                ? 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 glow-green'
-                : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700'
-            }`}
+            className="w-full py-6 px-6 rounded-2xl text-xl sm:text-2xl font-black text-white shadow-2xl transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 glow-green cursor-pointer border-2 border-emerald-400/50"
           >
             <div className="flex items-center gap-3">
-              <CheckCircle2 className={`w-8 h-8 ${activeIncident || currentUser?.isWarden ? 'text-white' : 'text-emerald-500'}`} />
+              <CheckCircle2 className="w-8 h-8 text-white" />
               <span>I AM SAFE / PRESENT</span>
             </div>
-            <span className="text-xs font-normal text-slate-300 opacity-90 tracking-normal">
+            <span className="text-xs font-normal text-emerald-100 opacity-90 tracking-normal">
               {activeIncident
-                ? '1-Tap Instant Roll Call Confirmation'
-                : currentUser?.isWarden
-                ? 'Warden: Tap to start drill & confirm presence'
-                : 'Standby Mode — active during evacuations & drills'}
+                ? '1-Tap Instant Roll Call Confirmation (Silences Alarm)'
+                : '1-Tap Check-In (Ready on Standby / Drills / Evacuation)'}
             </span>
           </button>
         )}

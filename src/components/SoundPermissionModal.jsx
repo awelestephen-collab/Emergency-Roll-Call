@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX, ShieldAlert, CheckCircle, BellRing, Smartphone } from 'lucide-react';
+import { Volume2, VolumeX, ShieldAlert, CheckCircle, BellRing, Smartphone, Info } from 'lucide-react';
 import { soundSynthesizer } from './AudioAlarm';
 import { pushManager } from '../services/pushManager';
 
 export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeIncident }) {
   const [permissionState, setPermissionState] = useState(soundSynthesizer.getSoundPermission());
+  const [vibrateStatus, setVibrateStatus] = useState(null);
 
   useEffect(() => {
     return soundSynthesizer.onPermissionChange((perm) => {
@@ -14,10 +15,38 @@ export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeInciden
 
   if (!isOpen) return null;
 
+  const handleTestVibration = () => {
+    const diag = soundSynthesizer.getVibrationDiagnostic();
+    if (diag.platform === 'ios') {
+      setVibrateStatus({
+        type: 'warning',
+        text: 'Apple iOS Safari does not support web vibration on iPhones. Evacuation sirens and visual alerts are active.'
+      });
+      soundSynthesizer.playTestSound();
+      return;
+    }
+    if (!diag.supported) {
+      setVibrateStatus({
+        type: 'warning',
+        text: 'Vibration hardware API is not available on this browser/device.'
+      });
+      soundSynthesizer.playTestSound();
+      return;
+    }
+    const didVibrate = soundSynthesizer.triggerVibration([400, 150, 400, 150, 400]);
+    soundSynthesizer.playTestSound();
+    setVibrateStatus({
+      type: 'success',
+      text: didVibrate
+        ? '📳 Vibration pulse sent to your phone! (If you did not feel it, enable Android Settings → Sound & Vibration → Touch Feedback).'
+        : '⚠️ Vibration command was not accepted by the browser.'
+    });
+  };
+
   const handleAllowSound = async () => {
     soundSynthesizer.grantSoundPermission();
     soundSynthesizer.unlockAudio();
-    soundSynthesizer.triggerVibration(); // Instant vibration confirmation
+    soundSynthesizer.triggerVibration([400, 150, 400]); // Instant vibration confirmation
 
     // Request OS push notification permission so alerts ring when Chrome is closed
     if (pushManager.isPushSupported()) {
@@ -88,6 +117,29 @@ export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeInciden
             <span>Checking in "SAFE" immediately ends the alarm on your device</span>
           </div>
         </div>
+
+        {/* Test Vibration button */}
+        <div className="flex items-center justify-between pt-1">
+          <button
+            type="button"
+            onClick={handleTestVibration}
+            className="text-xs text-amber-400 hover:text-amber-300 underline font-semibold flex items-center gap-1.5 cursor-pointer"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Tap here to test phone vibration & speaker</span>
+          </button>
+        </div>
+
+        {vibrateStatus && (
+          <div className={`p-2.5 rounded-xl text-xs border flex items-center gap-2 ${
+            vibrateStatus.type === 'success'
+              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200'
+              : 'bg-amber-500/20 border-amber-500/50 text-amber-200'
+          }`}>
+            <Info className="w-4 h-4 flex-shrink-0" />
+            <span>{vibrateStatus.text}</span>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-2.5 pt-2">

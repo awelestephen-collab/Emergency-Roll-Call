@@ -428,8 +428,39 @@ class SoundSynthesizer {
     }
   }
 
+  isVibrationSupported() {
+    return typeof window !== 'undefined' && typeof navigator !== 'undefined' && 'vibrate' in navigator;
+  }
+
+  isIOS() {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  getVibrationDiagnostic() {
+    if (this.isIOS()) {
+      return {
+        supported: false,
+        platform: 'ios',
+        message: 'Apple iOS Safari does not support the Web Vibration API. Audio sirens and visual alerts will still operate at full power.'
+      };
+    }
+    if (!this.isVibrationSupported()) {
+      return {
+        supported: false,
+        platform: 'unsupported',
+        message: 'Vibration hardware or API is not available on this device/browser.'
+      };
+    }
+    return {
+      supported: true,
+      platform: 'android_web',
+      message: 'Vibration hardware supported! Note: Ensure Android Settings → Sound & Vibration → Touch Feedback / Haptics is enabled.'
+    };
+  }
+
   startVibrationLoop() {
-    if (typeof window === 'undefined' || !('vibrate' in navigator)) return;
+    if (!this.isVibrationSupported()) return;
     this.triggerVibration();
     if (this.vibrateInterval) return;
     this.vibrateInterval = setInterval(() => {
@@ -438,7 +469,7 @@ class SoundSynthesizer {
       } else {
         this.stopVibrationLoop();
       }
-    }, 2500);
+    }, 2000);
   }
 
   stopVibrationLoop() {
@@ -447,18 +478,27 @@ class SoundSynthesizer {
       this.vibrateInterval = null;
     }
     try {
-      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      if (this.isVibrationSupported()) {
         navigator.vibrate(0);
       }
     } catch {}
   }
 
-  triggerVibration() {
+  triggerVibration(pattern = [400, 150, 400, 150, 400]) {
     try {
-      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate([1000, 200, 1000, 200, 1000]);
+      if (this.isVibrationSupported()) {
+        const success = navigator.vibrate(pattern);
+        console.info('[AudioAlarm] navigator.vibrate triggered:', success);
+        return success;
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[AudioAlarm] navigator.vibrate error:', e);
+    }
+    return false;
+  }
+
+  triggerQuickHaptic() {
+    return this.triggerVibration([80, 40, 80]);
   }
 
   stopSiren() {

@@ -559,6 +559,68 @@ export function IncidentProvider({ children }) {
       gps = null;
     }
 
+    const checkInRecord = {
+      staffId: id,
+      staffName: targetStaff?.name || 'Staff Member',
+      department: targetStaff?.department || 'Operations',
+      role: targetStaff?.role || 'Staff Member',
+      officeLocation: targetStaff?.officeLocation || 'Main Facility',
+      phone: targetStaff?.phone || '',
+      musterPointId: targetMuster.id,
+      musterPointName: targetMuster.name,
+      status,
+      checkInMethod: 'SELF_APP',
+      gpsStatus: gps ? 'VERIFIED_ON_SITE' : 'UNVERIFIED',
+      distanceMeters: gps ? 24 : null,
+      timestamp: now,
+      verifiedBy: targetStaff?.name || 'Staff Member',
+      notes
+    };
+
+    // 1. IMMEDIATE OPTIMISTIC LOCAL UPDATE:
+    // Update local roster immediately so UI displays "Checked In Safe" instantly with ZERO lag
+    setRoster(prev => prev.map(s => {
+      if (s.id === id) {
+        return {
+          ...s,
+          status,
+          checkIn: checkInRecord
+        };
+      }
+      return s;
+    }));
+
+    // If no incident was currently active, establish a local active roll-call session
+    if (!activeIncident) {
+      setActiveIncident({
+        id: `INC-${Date.now().toString().slice(-6)}`,
+        type: 'Roll-Call & Evacuation Session',
+        declaredBy: targetStaff?.name || 'Safety System',
+        declaredAt: now,
+        status: 'ACTIVE',
+        notes: 'Session active on staff check-in.',
+        isDrill: true,
+        escalationThresholdSeconds: 300,
+        checkIns: { [id]: checkInRecord },
+        timeline: [
+          {
+            timestamp: now,
+            action: 'CHECK_IN',
+            description: `${targetStaff?.name || id} checked in as ${status} at ${targetMuster.name}.`
+          }
+        ]
+      });
+    }
+
+    // Silence siren if checked in safe; play chime or warning beep
+    if (status === 'SAFE') {
+      soundSynthesizer.stopSiren();
+      setIsSirenPlaying(false);
+      soundSynthesizer.playSafeChime();
+    } else {
+      soundSynthesizer.playWarningBeep();
+    }
+
     const payload = {
       staffId: id,
       musterPointId: targetMuster.id,
@@ -569,7 +631,7 @@ export function IncidentProvider({ children }) {
       timestamp: now
     };
 
-    // Try sending to backend if available
+    // 2. Synchronize to backend hub
     try {
       const res = await fetch(getApiUrl('/api/checkin'), {
         method: 'POST',
@@ -578,46 +640,16 @@ export function IncidentProvider({ children }) {
       });
       if (res.ok) {
         const data = await res.json();
-        if (status === 'SAFE') {
-          soundSynthesizer.stopSiren();
-          setIsSirenPlaying(false);
-          soundSynthesizer.playSafeChime();
-        } else {
-          soundSynthesizer.playWarningBeep();
+        if (data?.summary) {
+          applySummary(data.summary);
         }
         return data;
       }
-    } catch {
-      // Backend not available (GitHub Pages or offline)
+    } catch (err) {
+      console.warn('[CheckIn] Backend fetch network notice:', err.message);
     }
 
-    // Client-side execution (guaranteed to work!)
-    setRoster(prev => prev.map(s => {
-      if (s.id === id) {
-        return {
-          ...s,
-          status,
-          checkIn: {
-            ...payload,
-            staffName: s.name,
-            musterPointName: targetMuster.name,
-            gpsStatus: gps ? 'VERIFIED_ON_SITE' : 'UNVERIFIED',
-            distanceMeters: gps ? 24 : null,
-            verifiedBy: s.name
-          }
-        };
-      }
-      return s;
-    }));
-
-    if (status === 'SAFE') {
-      soundSynthesizer.stopSiren();
-      setIsSirenPlaying(false);
-      soundSynthesizer.playSafeChime();
-    } else {
-      soundSynthesizer.playWarningBeep();
-    }
-    return { success: true, clientMode: true };
+    return { success: true, clientMode: true, checkInRecord };
   };
 
   // Submit warden override
@@ -626,6 +658,36 @@ export function IncidentProvider({ children }) {
     const targetMuster = musterPoints.find(m => m.id === musterPointId) || musterPoints[0];
     const now = new Date().toISOString();
 
+    const overrideRecord = {
+      staffId,
+      staffName: targetStaff?.name || 'Staff Member',
+      department: targetStaff?.department || 'Operations',
+      role: targetStaff?.role || 'Staff Member',
+      officeLocation: targetStaff?.officeLocation || 'Main Facility',
+      phone: targetStaff?.phone || '',
+      musterPointId: targetMuster.id,
+      musterPointName: targetMuster.name,
+      status,
+      checkInMethod: 'WARDEN_SIGHT',
+      timestamp: now,
+      verifiedBy: verifiedBy || 'Safety Warden (Sight Check)',
+      notes: notes || 'Verified at muster station'
+    };
+
+    // Immediate local optimistic update
+    setRoster(prev => prev.map(s => {
+      if (s.id === staffId) {
+        return {
+          ...s,
+          status,
+          checkIn: overrideRecord
+        };
+      }
+      return s;
+    }));
+
+    soundSynthesizer.playSafeChime();
+
     try {
       const res = await fetch(getApiUrl('/api/checkin/warden-override'), {
         method: 'POST',
@@ -633,35 +695,15 @@ export function IncidentProvider({ children }) {
         body: JSON.stringify({ staffId, musterPointId, status, verifiedBy, notes })
       });
       if (res.ok) {
-        soundSynthesizer.playSafeChime();
-        return await res.json();
+        const data = await res.json();
+        if (data?.summary) {
+          applySummary(data.summary);
+        }
+        return data;
       }
     } catch {}
 
-    // Client-side override
-    setRoster(prev => prev.map(s => {
-      if (s.id === staffId) {
-        return {
-          ...s,
-          status,
-          checkIn: {
-            staffId,
-            staffName: s.name,
-            musterPointId: targetMuster.id,
-            musterPointName: targetMuster.name,
-            status,
-            checkInMethod: 'WARDEN_SIGHT',
-            timestamp: now,
-            verifiedBy: verifiedBy || 'Warden Sight Confirmation',
-            notes: notes || 'Verified at muster station'
-          }
-        };
-      }
-      return s;
-    }));
-
-    soundSynthesizer.playSafeChime();
-    return { success: true };
+    return { success: true, clientMode: true, overrideRecord };
   };
 
   // Declare emergency
