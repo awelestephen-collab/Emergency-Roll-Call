@@ -101,6 +101,10 @@ export function StaffCheckInView() {
         notes: status === 'NEEDS_ASSISTANCE' ? helpNotes : ''
       });
 
+      if (status === 'SAFE') {
+        soundSynthesizer.stopSiren();
+      }
+
       if (res.offline) {
         setFeedback({
           type: 'warning',
@@ -109,7 +113,7 @@ export function StaffCheckInView() {
       } else {
         setFeedback({
           type: 'success',
-          text: status === 'SAFE' ? 'Checked in safe! Warden notified.' : 'Assistance alert transmitted to Emergency Response Team.'
+          text: status === 'SAFE' ? 'Checked in safe! Alarm silenced & warden notified.' : 'Assistance alert transmitted to Emergency Response Team.'
         });
       }
       setShowHelpInput(false);

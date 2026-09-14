@@ -217,9 +217,30 @@ export function IncidentProvider({ children }) {
     });
   }, []);
 
-  // Guarantee that whenever an incident is active, the alarm sounds on this device if sound is permitted
+  // Refs to prevent closure staleness in socket and polling callbacks
+  const currentUserRef = useRef(currentUser);
   useEffect(() => {
-    if (activeIncident && activeIncident.status === 'ACTIVE') {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  const rosterRef = useRef(roster);
+  useEffect(() => {
+    rosterRef.current = roster;
+  }, [roster]);
+
+  const isAudioMutedRef = useRef(isAudioMuted);
+  useEffect(() => {
+    isAudioMutedRef.current = isAudioMuted;
+  }, [isAudioMuted]);
+
+  // Check if current device's linked user has checked in safe
+  const isCurrentUserSafe = currentUser
+    ? roster.some(r => r.id === currentUser.id && (r.status === 'SAFE' || r.status === 'MANUAL_SIGHT_CONFIRMED'))
+    : false;
+
+  // Guarantee that whenever an incident is active, the alarm sounds on this device UNTIL the user checks in safe
+  useEffect(() => {
+    if (activeIncident && activeIncident.status === 'ACTIVE' && !isCurrentUserSafe) {
       if (soundPermission === 'granted' && !isAudioMuted) {
         setIsSirenPlaying(true);
         soundSynthesizer.startSiren();
@@ -227,40 +248,49 @@ export function IncidentProvider({ children }) {
         soundSynthesizer.setAutoplayBlocked(true);
         soundSynthesizer.attachGlobalGestureListener();
       }
-    } else if (!activeIncident || activeIncident.status !== 'ACTIVE') {
+    } else if (!activeIncident || activeIncident.status !== 'ACTIVE' || isCurrentUserSafe) {
       setIsSirenPlaying(false);
       soundSynthesizer.stopSiren();
     }
-  }, [activeIncident, soundPermission, isAudioMuted]);
-
-  // Ref for audio mute state to decouple listeners and prevent socket reconnect loops
-  const isAudioMutedRef = useRef(isAudioMuted);
-  useEffect(() => {
-    isAudioMutedRef.current = isAudioMuted;
-  }, [isAudioMuted]);
+  }, [activeIncident, soundPermission, isAudioMuted, isCurrentUserSafe]);
 
   // Summary updater helper
   const applySummary = useCallback((summary) => {
     if (!summary) return;
+    if (summary.roster && summary.roster.length > 0) setRoster(summary.roster);
+
+    const checkSafe = (rosterList) => {
+      if (!currentUserRef.current) return false;
+      return (rosterList || []).some(
+        r => r.id === currentUserRef.current.id && (r.status === 'SAFE' || r.status === 'MANUAL_SIGHT_CONFIRMED')
+      );
+    };
+
+    const userAlreadySafe = checkSafe(summary.roster || rosterRef.current);
+
     if (summary.incident !== undefined) {
       setActiveIncident(summary.incident);
-      if (summary.incident && summary.incident.status === 'ACTIVE' && !isAudioMutedRef.current) {
+      if (summary.incident && summary.incident.status === 'ACTIVE' && !isAudioMutedRef.current && !userAlreadySafe) {
         setIsSirenPlaying(true);
         soundSynthesizer.startSiren();
-      } else if (!summary.incident || summary.incident.status !== 'ACTIVE') {
+      } else {
         setIsSirenPlaying(false);
         soundSynthesizer.stopSiren();
       }
     }
     if (summary.isSirenPlaying !== undefined) {
-      setIsSirenPlaying(summary.isSirenPlaying);
-      if (summary.isSirenPlaying && !isAudioMutedRef.current) {
-        soundSynthesizer.startSiren();
-      } else if (!summary.isSirenPlaying) {
+      if (userAlreadySafe) {
+        setIsSirenPlaying(false);
         soundSynthesizer.stopSiren();
+      } else {
+        setIsSirenPlaying(summary.isSirenPlaying);
+        if (summary.isSirenPlaying && !isAudioMutedRef.current) {
+          soundSynthesizer.startSiren();
+        } else if (!summary.isSirenPlaying) {
+          soundSynthesizer.stopSiren();
+        }
       }
     }
-    if (summary.roster && summary.roster.length > 0) setRoster(summary.roster);
     if (summary.totalStaff !== undefined) {
       setStats({
         totalStaff: summary.totalStaff || DEFAULT_STAFF.length,
@@ -280,7 +310,14 @@ export function IncidentProvider({ children }) {
     if (acknowledgedIncidentRef.current === incidentId) return;
     acknowledgedIncidentRef.current = incidentId;
     console.info(`[AlertReceive] Emergency incident signal received via ${source}. incident=${incidentId}`);
-    if (!isAudioMutedRef.current) {
+
+    const userAlreadySafe = currentUserRef.current
+      ? (summary?.roster || rosterRef.current || []).some(
+          r => r.id === currentUserRef.current.id && (r.status === 'SAFE' || r.status === 'MANUAL_SIGHT_CONFIRMED')
+        )
+      : false;
+
+    if (!isAudioMutedRef.current && !userAlreadySafe) {
       soundSynthesizer.startSiren();
       setIsSirenPlaying(true);
     }
@@ -541,7 +578,13 @@ export function IncidentProvider({ children }) {
       });
       if (res.ok) {
         const data = await res.json();
-        soundSynthesizer.playSafeChime();
+        if (status === 'SAFE') {
+          soundSynthesizer.stopSiren();
+          setIsSirenPlaying(false);
+          soundSynthesizer.playSafeChime();
+        } else {
+          soundSynthesizer.playWarningBeep();
+        }
         return data;
       }
     } catch {
@@ -567,7 +610,13 @@ export function IncidentProvider({ children }) {
       return s;
     }));
 
-    soundSynthesizer.playSafeChime();
+    if (status === 'SAFE') {
+      soundSynthesizer.stopSiren();
+      setIsSirenPlaying(false);
+      soundSynthesizer.playSafeChime();
+    } else {
+      soundSynthesizer.playWarningBeep();
+    }
     return { success: true, clientMode: true };
   };
 

@@ -488,4 +488,16 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pointerdown', unlockListener, { passive: true });
   window.addEventListener('touchstart', unlockListener, { passive: true });
   window.addEventListener('click', unlockListener, { passive: true });
+
+  // When app is unminimized or brought to foreground, awaken audio pipeline
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        soundSynthesizer.unlockAudio();
+        if (soundSynthesizer.isSirenPlaying && !soundSynthesizer.isMuted) {
+          soundSynthesizer.startSiren();
+        }
+      }
+    });
+  }
 }
