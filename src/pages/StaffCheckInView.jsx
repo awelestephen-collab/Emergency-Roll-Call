@@ -139,6 +139,8 @@ export function StaffCheckInView() {
           onClick={() => {
             if (soundPermission !== 'granted') {
               grantSoundPermission();
+              soundSynthesizer.unlockAudio();
+              soundSynthesizer.startSiren();
             } else {
               soundSynthesizer.unlockAudio();
               toggleSiren();
@@ -203,7 +205,10 @@ export function StaffCheckInView() {
                 onClick={() => {
                   if (soundPermission !== 'granted') {
                     grantSoundPermission();
+                    soundSynthesizer.unlockAudio();
+                    soundSynthesizer.startSiren();
                   } else {
+                    soundSynthesizer.unlockAudio();
                     toggleSiren();
                   }
                 }}

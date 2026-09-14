@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useIncident } from '../context/IncidentContext';
 import { downloadClientPdf, downloadClientExcel } from '../utils/clientReports';
 import { StaffManagerModal } from '../components/StaffManagerModal';
+import { soundSynthesizer } from '../components/AudioAlarm';
 import {
   ShieldAlert,
   CheckCircle2,
@@ -208,7 +209,10 @@ export function WardenDashboardView() {
                 onClick={() => {
                   if (soundPermission !== 'granted') {
                     grantSoundPermission();
+                    soundSynthesizer.unlockAudio();
+                    soundSynthesizer.startSiren();
                   } else {
+                    soundSynthesizer.unlockAudio();
                     toggleSiren();
                   }
                 }}

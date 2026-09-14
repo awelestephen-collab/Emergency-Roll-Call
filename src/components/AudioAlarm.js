@@ -1,9 +1,12 @@
 /**
- * AudioAlarm Synthesizer
- * Uses HTML5 Web Audio API to synthesize emergency sirens, attention tones, and check-in confirmation chimes.
+ * AudioAlarm Synthesizer & Sound Engine
+ * Uses HTML5 Audio + Web Audio API to synthesize emergency evacuation sirens,
+ * attention tones, and check-in confirmation chimes with rock-solid mobile PWA support.
  */
 
-const STORAGE_KEY_SOUND_PERM = 'emergency_sound_permission'; // 'granted', 'denied', or null
+import sirenSoundUrl from '../assets/siren.wav';
+
+const STORAGE_KEY_SOUND_PERM = 'emergency_sound_permission'; // 'granted', 'denied', or 'prompt'
 
 class SoundSynthesizer {
   constructor() {
@@ -16,11 +19,20 @@ class SoundSynthesizer {
     // If not granted, muted is true (do not enable by default)
     this.isMuted = this.soundPermission !== 'granted';
     this.sirenOscillator = null;
+    this.sirenGain = null;
     this.sirenInterval = null;
+    this.vibrateInterval = null;
     this.isUnlocked = false;
     this.isAutoplayBlocked = false;
+    this.isSirenPlaying = false;
+    this.hasActiveGestureListener = false;
+    this.keepAliveInterval = null;
     this.blockedListeners = new Set();
     this.permissionListeners = new Set();
+
+    if (typeof window !== 'undefined') {
+      this.initAudioElement();
+    }
   }
 
   getSoundPermission() {
@@ -44,6 +56,7 @@ class SoundSynthesizer {
       localStorage.setItem(STORAGE_KEY_SOUND_PERM, 'granted');
     } catch {}
     this.unlockAudio();
+    this.playTestSound();
     this.permissionListeners.forEach(cb => cb('granted'));
   }
 
@@ -80,26 +93,20 @@ class SoundSynthesizer {
     }
   }
 
-  unlockAudio() {
-    this.initContext();
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume().then(() => {
-        this.setAutoplayBlocked(false);
-      }).catch(() => {});
-    } else if (this.audioCtx && this.audioCtx.state === 'running') {
-      this.setAutoplayBlocked(false);
+  initAudioElement() {
+    if (this.audioElement || typeof window === 'undefined') return;
+    try {
+      const audio = new Audio();
+      // Primary hashed asset with fallback to absolute root /siren.wav
+      audio.src = sirenSoundUrl || './siren.wav';
+      audio.loop = true;
+      audio.preload = 'auto';
+      audio.volume = 1.0;
+      audio.crossOrigin = 'anonymous';
+      this.audioElement = audio;
+    } catch (e) {
+      console.warn('[AudioAlarm] Could not initialize audio element:', e);
     }
-    if (!this.audioElement && typeof window !== 'undefined') {
-      try {
-        const sirenUrl = new URL('siren.wav', window.location.href).href;
-        const audio = new Audio(sirenUrl);
-        audio.loop = true;
-        audio.preload = 'auto';
-        audio.volume = 1.0;
-        this.audioElement = audio;
-      } catch (e) {}
-    }
-    this.isUnlocked = true;
   }
 
   initContext() {
@@ -112,6 +119,81 @@ class SoundSynthesizer {
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
       this.audioCtx.resume().catch(() => {});
     }
+  }
+
+  /**
+   * Hardware & Mobile PWA audio unlock routine.
+   * MUST be executed inside or during user gestures (click/touch) to unlock iOS Safari
+   * and Android Chrome media pipelines permanently for subsequent async triggers.
+   */
+  unlockAudio() {
+    this.initContext();
+    this.initAudioElement();
+
+    // 1. Physically unlock Web Audio API using a tiny 1-sample silent buffer
+    if (this.audioCtx) {
+      try {
+        if (this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume().then(() => {
+            this.setAutoplayBlocked(false);
+          }).catch(() => {});
+        } else if (this.audioCtx.state === 'running') {
+          this.setAutoplayBlocked(false);
+        }
+
+        const silentBuffer = this.audioCtx.createBuffer(1, 1, 22050);
+        const source = this.audioCtx.createBufferSource();
+        source.buffer = silentBuffer;
+        source.connect(this.audioCtx.destination);
+        source.start(0);
+      } catch (e) {
+        console.warn('[AudioAlarm] Web Audio silent buffer unlock warning:', e);
+      }
+    }
+
+    // 2. Prime HTML5 Audio element inside user gesture so future programmatic play() calls are permitted
+    if (this.audioElement) {
+      try {
+        this.audioElement.load();
+        const playPromise = this.audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            this.setAutoplayBlocked(false);
+            // If the siren is not actively sounding, pause immediately to preserve silence
+            if (!this.isSirenPlaying) {
+              this.audioElement.pause();
+              this.audioElement.currentTime = 0;
+            }
+          }).catch(() => {
+            // Handled gracefully; Web Audio oscillator remains ready
+          });
+        }
+      } catch (e) {}
+    }
+
+    this.isUnlocked = true;
+    this.startKeepAlive();
+  }
+
+  /**
+   * Periodic inaudible pulse to prevent iOS Safari and Android Chrome from putting
+   * the AudioContext into power-saving suspended mode while the app is running.
+   */
+  startKeepAlive() {
+    if (this.keepAliveInterval || typeof window === 'undefined') return;
+    this.keepAliveInterval = setInterval(() => {
+      if (this.audioCtx && this.audioCtx.state === 'running' && !this.isSirenPlaying) {
+        try {
+          const osc = this.audioCtx.createOscillator();
+          const gain = this.audioCtx.createGain();
+          gain.gain.setValueAtTime(0.00001, this.audioCtx.currentTime); // Inaudible to human ear
+          osc.connect(gain);
+          gain.connect(this.audioCtx.destination);
+          osc.start();
+          osc.stop(this.audioCtx.currentTime + 0.05);
+        } catch {}
+      }
+    }, 15000);
   }
 
   toggleMute() {
@@ -182,16 +264,82 @@ class SoundSynthesizer {
     }
   }
 
-  // Evacuation siren (dual-layer: loud HTML5 audio + Web Audio oscillator + hardware vibration)
+  // Test sound played when granting permission (validates speaker works immediately)
+  playTestSound() {
+    try {
+      this.initContext();
+      if (!this.audioCtx) return;
+
+      const now = this.audioCtx.currentTime;
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(659.25, now); // E5
+      osc.frequency.setValueAtTime(880.00, now + 0.14); // A5
+
+      gain.gain.setValueAtTime(0.5, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.45);
+    } catch (e) {}
+  }
+
+  /**
+   * Global screen touch listener attached when an evacuation is active but browser
+   * autoplay policy prevented sound from starting without a direct interaction.
+   * One tap anywhere on the screen immediately unleashes the siren.
+   */
+  attachGlobalGestureListener() {
+    if (typeof window === 'undefined' || this.hasActiveGestureListener) return;
+    this.hasActiveGestureListener = true;
+
+    const onScreenGesture = () => {
+      this.hasActiveGestureListener = false;
+      window.removeEventListener('pointerdown', onScreenGesture);
+      window.removeEventListener('touchstart', onScreenGesture);
+      window.removeEventListener('touchend', onScreenGesture);
+      window.removeEventListener('click', onScreenGesture);
+      window.removeEventListener('keydown', onScreenGesture);
+
+      this.unlockAudio();
+      if (this.isSirenPlaying && !this.isMuted) {
+        this.startSiren();
+      }
+    };
+
+    window.addEventListener('pointerdown', onScreenGesture, { passive: true });
+    window.addEventListener('touchstart', onScreenGesture, { passive: true });
+    window.addEventListener('touchend', onScreenGesture, { passive: true });
+    window.addEventListener('click', onScreenGesture, { passive: true });
+    window.addEventListener('keydown', onScreenGesture, { passive: true });
+  }
+
+  /**
+   * Dual-Layer Emergency Evacuation Siren:
+   * Layer 1: High-amplitude HTML5 Audio siren loop (loudest on mobile audio pipeline).
+   * Layer 2: Web Audio API synthesized warble oscillator with dynamic compressor (100% offline & immune to network issues).
+   * Layer 3: Synchronized mobile hardware vibration.
+   * Layer 4: OS lock-screen MediaSession registration.
+   */
   startSiren() {
+    this.isSirenPlaying = true;
+
     if (!this.isSoundEnabled()) {
-      console.info('[AudioAlarm] Sound permission not granted or muted. Siren held until user grants permission.');
+      console.info('[AudioAlarm] Sound permission not granted or muted. Armed for immediate playback once permitted.');
+      this.setAutoplayBlocked(true);
+      this.attachGlobalGestureListener();
       return;
     }
+
     this.unlockAudio();
     this.triggerVibration();
 
-    // 1. Play native HTML5 audio element (loudest and most reliable on mobile media stream)
+    // 1. Play native HTML5 audio element
     if (this.audioElement) {
       try {
         this.audioElement.volume = 1.0;
@@ -200,75 +348,71 @@ class SoundSynthesizer {
           playPromise.then(() => {
             this.setAutoplayBlocked(false);
           }).catch((err) => {
-            console.warn('[AudioAlarm] Autoplay blocked by browser policy, listening for touch/click to sound alarm:', err);
+            console.warn('[AudioAlarm] Audio element autoplay held by browser policy:', err.message);
             this.setAutoplayBlocked(true);
-            const retryOnGesture = () => {
-              this.unlockAudio();
-              if (this.audioElement && !this.isMuted) {
-                this.audioElement.play().then(() => {
-                  this.setAutoplayBlocked(false);
-                }).catch(() => {});
-              }
-              if (this.audioCtx && this.audioCtx.state === 'suspended') {
-                this.audioCtx.resume().then(() => {
-                  this.setAutoplayBlocked(false);
-                }).catch(() => {});
-              }
-              window.removeEventListener('pointerdown', retryOnGesture);
-              window.removeEventListener('touchstart', retryOnGesture);
-              window.removeEventListener('click', retryOnGesture);
-              window.removeEventListener('keydown', retryOnGesture);
-            };
-            window.addEventListener('pointerdown', retryOnGesture, { once: true, passive: true });
-            window.addEventListener('touchstart', retryOnGesture, { once: true, passive: true });
-            window.addEventListener('click', retryOnGesture, { once: true, passive: true });
-            window.addEventListener('keydown', retryOnGesture, { once: true, passive: true });
+            this.attachGlobalGestureListener();
           });
         }
       } catch (err) {
-        console.warn('[AudioAlarm] Error playing audioElement:', err);
         this.setAutoplayBlocked(true);
+        this.attachGlobalGestureListener();
       }
     }
 
-    // 2. Synthesize piercing Web Audio oscillator layer
-    if (!this.sirenOscillator) {
-      try {
-        this.initContext();
-        if (this.audioCtx) {
+    // 2. Synthesize piercing Web Audio oscillator layer (sweeps 650Hz <-> 980Hz)
+    try {
+      this.initContext();
+      if (this.audioCtx) {
+        if (this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume().then(() => {
+            this.setAutoplayBlocked(false);
+          }).catch(() => {
+            this.setAutoplayBlocked(true);
+            this.attachGlobalGestureListener();
+          });
+        }
+
+        if (!this.sirenOscillator) {
           let isHigh = false;
-          this.sirenOscillator = this.audioCtx.createOscillator();
+          const osc = this.audioCtx.createOscillator();
           const gain = this.audioCtx.createGain();
           const compressor = this.audioCtx.createDynamicsCompressor();
+
           compressor.threshold.setValueAtTime(-24, this.audioCtx.currentTime);
           compressor.knee.setValueAtTime(20, this.audioCtx.currentTime);
           compressor.ratio.setValueAtTime(12, this.audioCtx.currentTime);
           compressor.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
           compressor.release.setValueAtTime(0.25, this.audioCtx.currentTime);
+
           gain.gain.setValueAtTime(0.85, this.audioCtx.currentTime);
 
-          this.sirenOscillator.type = 'sawtooth';
-          this.sirenOscillator.frequency.setValueAtTime(650, this.audioCtx.currentTime);
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(650, this.audioCtx.currentTime);
 
-          this.sirenOscillator.connect(gain);
+          osc.connect(gain);
           gain.connect(compressor);
           compressor.connect(this.audioCtx.destination);
-          this.sirenOscillator.start();
+          osc.start();
+
+          this.sirenOscillator = osc;
+          this.sirenGain = gain;
 
           this.sirenInterval = setInterval(() => {
             if (!this.audioCtx || !this.sirenOscillator) return;
             const now = this.audioCtx.currentTime;
             const targetFreq = isHigh ? 650 : 980;
-            this.sirenOscillator.frequency.setTargetAtTime(targetFreq, now, 0.12);
+            try {
+              this.sirenOscillator.frequency.setTargetAtTime(targetFreq, now, 0.12);
+            } catch {}
             isHigh = !isHigh;
             if (isHigh) {
               this.triggerVibration();
             }
-          }, 500);
+          }, 450);
         }
-      } catch (e) {
-        console.warn('Siren oscillator start error:', e);
       }
+    } catch (e) {
+      console.warn('[AudioAlarm] Siren oscillator error:', e);
     }
 
     // 3. Register with OS lock screen media controls
@@ -287,12 +431,15 @@ class SoundSynthesizer {
   triggerVibration() {
     try {
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate([600, 200, 600, 200, 600, 200, 1000]);
+        navigator.vibrate([800, 200, 800, 200, 800, 200, 1200]);
       }
     } catch {}
   }
 
   stopSiren() {
+    this.isSirenPlaying = false;
+    this.setAutoplayBlocked(false);
+
     try {
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(0);
@@ -310,13 +457,16 @@ class SoundSynthesizer {
       clearInterval(this.sirenInterval);
       this.sirenInterval = null;
     }
+
     if (this.sirenOscillator) {
       try {
         this.sirenOscillator.stop();
         this.sirenOscillator.disconnect();
       } catch (e) {}
       this.sirenOscillator = null;
+      this.sirenGain = null;
     }
+
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';
@@ -327,7 +477,7 @@ class SoundSynthesizer {
 
 export const soundSynthesizer = new SoundSynthesizer();
 
-// Global touch & click listener: The very first user touch on a smartphone immediately unlocks audio
+// Global touch & click listener: The very first user touch on a smartphone immediately primes audio
 if (typeof window !== 'undefined') {
   const unlockListener = () => {
     soundSynthesizer.unlockAudio();

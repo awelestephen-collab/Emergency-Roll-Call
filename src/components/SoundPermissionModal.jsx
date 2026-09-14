@@ -15,6 +15,12 @@ export function SoundPermissionModal({ isOpen, onGrant, onDecline, activeInciden
 
   const handleAllowSound = () => {
     soundSynthesizer.grantSoundPermission();
+    soundSynthesizer.unlockAudio();
+    if (activeIncident && activeIncident.status === 'ACTIVE') {
+      soundSynthesizer.startSiren();
+    } else {
+      soundSynthesizer.playTestSound();
+    }
     if (onGrant) onGrant();
   };
 

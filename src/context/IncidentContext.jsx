@@ -223,6 +223,9 @@ export function IncidentProvider({ children }) {
       if (soundPermission === 'granted' && !isAudioMuted) {
         setIsSirenPlaying(true);
         soundSynthesizer.startSiren();
+      } else {
+        soundSynthesizer.setAutoplayBlocked(true);
+        soundSynthesizer.attachGlobalGestureListener();
       }
     } else if (!activeIncident || activeIncident.status !== 'ACTIVE') {
       setIsSirenPlaying(false);
@@ -864,7 +867,14 @@ export function IncidentProvider({ children }) {
         isAudioMuted,
         isAutoplayBlocked,
         soundPermission,
-        grantSoundPermission: () => soundSynthesizer.grantSoundPermission(),
+        grantSoundPermission: () => {
+          soundSynthesizer.grantSoundPermission();
+          soundSynthesizer.unlockAudio();
+          if (activeIncident && activeIncident.status === 'ACTIVE') {
+            soundSynthesizer.startSiren();
+            setIsSirenPlaying(true);
+          }
+        },
         declineSoundPermission: () => soundSynthesizer.declineSoundPermission(),
         resetSoundPermission: () => soundSynthesizer.resetSoundPermission(),
         unlockAudio: () => {

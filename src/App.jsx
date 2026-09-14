@@ -35,6 +35,8 @@ function AppContent() {
       setActiveTab('checkin');
     }
     if (params.get('autoAlarm') === '1') {
+      soundSynthesizer.grantSoundPermission();
+      soundSynthesizer.unlockAudio();
       soundSynthesizer.startSiren();
     }
   }, []);
@@ -267,7 +269,15 @@ function AppContent() {
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => setShowSoundPermissionModal(true)}
+                  onClick={() => {
+                    soundSynthesizer.grantSoundPermission();
+                    soundSynthesizer.unlockAudio();
+                    if (activeIncident && activeIncident.status === 'ACTIVE') {
+                      soundSynthesizer.startSiren();
+                    } else {
+                      soundSynthesizer.playTestSound();
+                    }
+                  }}
                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg cursor-pointer"
                 >
                   <Volume2 className="w-4 h-4" />
@@ -280,13 +290,23 @@ function AppContent() {
       )}
 
       {/* AUTOPLAY UNLOCK BANNER FOR MOBILE BROWSERS & PWAs */}
-      {activeIncident && soundPermission === 'granted' && isAutoplayBlocked && (
+      {activeIncident && isAutoplayBlocked && (
         <div
-          onClick={unlockAudio}
+          onClick={() => {
+            soundSynthesizer.grantSoundPermission();
+            soundSynthesizer.unlockAudio();
+            soundSynthesizer.startSiren();
+          }}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') unlockAudio(); }}
-          className="bg-red-600 hover:bg-red-500 cursor-pointer text-white px-4 py-3 text-center border-b-2 border-amber-300 shadow-2xl animate-pulse transition-all select-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              soundSynthesizer.grantSoundPermission();
+              soundSynthesizer.unlockAudio();
+              soundSynthesizer.startSiren();
+            }
+          }}
+          className="sticky top-12 z-50 bg-red-600 hover:bg-red-500 cursor-pointer text-white px-4 py-3 text-center border-b-2 border-amber-300 shadow-2xl animate-pulse transition-all select-none"
         >
           <div className="max-w-4xl mx-auto flex items-center justify-center gap-3">
             <Volume2 className="w-6 h-6 animate-bounce text-amber-300 flex-shrink-0" />
