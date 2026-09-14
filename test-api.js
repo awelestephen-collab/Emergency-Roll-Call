@@ -74,6 +74,15 @@ try {
   console.log(`[PASS] Incident history count: ${history.length}`);
   if (history[0].id !== closedIncident.id) throw new Error('Recent incident not at top of history');
 
+  // Test 7b: Verify Siren State persistence and reset on All-Clear
+  if (store.getSirenState() !== false) throw new Error('Siren should be reset to false on All-Clear');
+  store.setSirenState(true);
+  if (store.getSirenState() !== true) throw new Error('setSirenState should set siren to true');
+  const summaryWithSiren = store.getRosterSummary();
+  if (summaryWithSiren.isSirenPlaying !== true) throw new Error('getRosterSummary should include isSirenPlaying');
+  store.setSirenState(false);
+  console.log('[PASS] Siren state persistence, getRosterSummary sync, and All-Clear reset validated');
+
   // Test 8: Generate PDF in-memory test
   const doc = new jsPDF();
   doc.text('Emergency Test Audit', 10, 10);

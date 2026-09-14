@@ -202,6 +202,14 @@ export function IncidentProvider({ children }) {
   const applySummary = useCallback((summary) => {
     if (!summary) return;
     if (summary.incident !== undefined) setActiveIncident(summary.incident);
+    if (summary.isSirenPlaying !== undefined) {
+      setIsSirenPlaying(summary.isSirenPlaying);
+      if (summary.isSirenPlaying) {
+        soundSynthesizer.startSiren();
+      } else {
+        soundSynthesizer.stopSiren();
+      }
+    }
     if (summary.roster && summary.roster.length > 0) setRoster(summary.roster);
     if (summary.totalStaff !== undefined) {
       setStats({
@@ -233,7 +241,7 @@ export function IncidentProvider({ children }) {
       const socketOptions = {
         reconnectionAttempts: Infinity,
         reconnectionDelay: 2000,
-        timeout: 5000,
+        timeout: 30000, // 30s to withstand cloud cold-starts
         transports: ['websocket', 'polling']
       };
 
@@ -263,14 +271,13 @@ export function IncidentProvider({ children }) {
       socket.on('siren_state_changed', ({ playing, alertId }) => {
         if (alertId && alertId === acknowledgedSignalRef.current) return;
         acknowledgedSignalRef.current = alertId || null;
+        setIsSirenPlaying(!!playing);
         if (playing) {
           console.info('[AlertReceive] Siren toggle received via socket. playing=true');
           soundSynthesizer.startSiren();
-          setIsSirenPlaying(true);
         } else {
           console.info('[AlertReceive] Siren toggle received via socket. playing=false');
           soundSynthesizer.stopSiren();
-          setIsSirenPlaying(false);
         }
       });
 
@@ -387,6 +394,9 @@ export function IncidentProvider({ children }) {
   // Audio controls
   const toggleSiren = async () => {
     const nextState = !isSirenPlaying;
+    const alertId = `siren-client-${Date.now()}`;
+    acknowledgedSignalRef.current = alertId;
+
     if (nextState) {
       soundSynthesizer.startSiren();
       setIsSirenPlaying(true);
@@ -396,14 +406,14 @@ export function IncidentProvider({ children }) {
     }
 
     if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit('siren_toggle', { playing: nextState });
+      socketRef.current.emit('siren_toggle', { playing: nextState, alertId });
     }
 
     try {
       await fetch(getApiUrl('/api/incidents/siren'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playing: nextState })
+        body: JSON.stringify({ playing: nextState, alertId })
       });
     } catch {}
   };

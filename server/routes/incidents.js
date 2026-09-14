@@ -131,11 +131,21 @@ export function createIncidentsRouter(io) {
     }
   });
 
+  // GET /api/incidents/siren - Query current siren state
+  router.get('/siren', (req, res) => {
+    try {
+      res.json({ playing: store.getSirenState() });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/incidents/siren - Remotely sound or silence sirens on all staff devices
   router.post('/siren', (req, res) => {
     try {
       const { playing } = req.body;
       const alertId = buildAlertId('siren');
+      store.setSirenState(playing);
       io.emit('siren_state_changed', { playing: !!playing, alertId });
       console.log(`[AlertDispatch] siren_state_changed ${alertId} playing=${!!playing}`);
 
@@ -146,11 +156,11 @@ export function createIncidentsRouter(io) {
           body: 'Safety Warden has sounded the evacuation alarm! Evacuate immediately!',
           tag: 'emergency-siren',
           requireInteraction: true,
-          data: { url: './' }
+          data: { url: './', autoAlarm: true }
         }).catch(err => console.error('[PushBroadcast] Error in /siren:', err));
       }
 
-      res.json({ success: true, playing: !!playing });
+      res.json({ success: true, playing: !!playing, alertId });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

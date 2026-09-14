@@ -126,6 +126,17 @@ class SoundSynthesizer {
           this.triggerVibration();
         }
       }, 500);
+
+      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: 'EMERGENCY EVACUATION SIREN ACTIVE',
+            artist: 'Life Safety Roll Call',
+            album: 'Muster Alarm System'
+          });
+          navigator.mediaSession.playbackState = 'playing';
+        } catch (mErr) {}
+      }
     } catch (e) {
       console.warn('Siren start error:', e);
     }
@@ -156,6 +167,11 @@ class SoundSynthesizer {
         this.sirenOscillator.disconnect();
       } catch (e) {}
       this.sirenOscillator = null;
+    }
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+      } catch (mErr) {}
     }
   }
 }

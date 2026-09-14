@@ -104,19 +104,20 @@ self.addEventListener('push', (event) => {
   const rawUrl = payloadData.url || self.registration.scope;
   const incidentId = payloadData.incidentId || null;
   const alertId = payloadData.alertId || `sw-${Date.now()}`;
-  const targetUrl = incidentId
+  let targetUrl = incidentId
     ? `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}alert=${encodeURIComponent(incidentId)}`
     : rawUrl;
+  targetUrl += `${targetUrl.includes('?') ? '&' : '?'}autoAlarm=1`;
 
   console.log(`[SW] Showing emergency notification alertId=${alertId} incidentId=${incidentId || 'none'}`);
   const options = {
     body: data.body || 'Immediate evacuation ordered! Tap to open muster roll-call and check in.',
     icon: self.registration.scope + 'icon-192.png',
     badge: self.registration.scope + 'icon-192.png',
-    vibrate: data.vibrate || [500, 200, 500, 200, 500, 200, 1000],
+    vibrate: data.vibrate || [1000, 300, 1000, 300, 1000, 300, 2000],
     tag: data.tag || 'emergency-alert',
     renotify: true,
-    requireInteraction: data.requireInteraction !== false, // Stays prominently on lock screen
+    requireInteraction: true, // Stays prominently on lock screen until user interacts
     silent: false,
     timestamp: data.timestamp || Date.now(),
     data: {
@@ -127,7 +128,7 @@ self.addEventListener('push', (event) => {
       timestamp: Date.now()
     },
     actions: [
-      { action: 'open', title: '📍 Open Roll Call' }
+      { action: 'open', title: '🚨 SOUND ALARM & ROLL CALL' }
     ]
   };
 

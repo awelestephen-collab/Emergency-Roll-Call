@@ -16,7 +16,20 @@ export function getBackendUrl() {
     return import.meta.env.VITE_BACKEND_URL.trim().replace(/\/+$/, '');
   }
 
-  // 3. Default production cloud hub for all devices (PC, Android, iOS) to guarantee real-time sync
+  // 3. Dynamic host detection: If running locally or on custom server, use same host
+  if (typeof window !== 'undefined' && window.location) {
+    const { hostname, port, origin } = window.location;
+    // Vite dev server running on port 5173 -> talk directly to Express backend on 3001
+    if (port === '5173') {
+      return `http://${hostname}:3001`;
+    }
+    // If served from Express directly (port 3001) or custom domain/LAN IP, use origin
+    if (port === '3001' || (hostname !== 'localhost' && !hostname.includes('github.io'))) {
+      return origin;
+    }
+  }
+
+  // 4. Default production cloud hub for GitHub Pages / static hosting
   return 'https://falcon-emergency-roll-call.onrender.com';
 }
 

@@ -83,6 +83,9 @@ io.on('connection', (socket) => {
 
   socket.on('siren_toggle', (data) => {
     console.log(`[Socket] Siren state update:`, data);
+    if (data && data.playing !== undefined) {
+      store.setSirenState(data.playing);
+    }
     io.emit('siren_state_changed', data);
   });
 

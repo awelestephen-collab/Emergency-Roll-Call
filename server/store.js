@@ -22,6 +22,7 @@ let staffList = [];
 let musterPoints = [];
 let incidentHistory = [];
 let activeIncident = null;
+let isSirenActive = false;
 
 try {
   if (fs.existsSync(STAFF_FILE)) {
@@ -117,9 +118,19 @@ export const store = {
     return incidentHistory;
   },
 
+  getSirenState() {
+    return isSirenActive;
+  },
+
+  setSirenState(playing) {
+    isSirenActive = !!playing;
+    return isSirenActive;
+  },
+
   declareIncident({ type = 'Fire Evacuation', declaredBy = 'Incident Commander', notes = '', simulatedDrill = false, escalationThresholdSeconds = 300 }) {
     const now = new Date().toISOString();
     const incidentId = `INC-${Date.now().toString().slice(-6)}`;
+    isSirenActive = true;
     
     activeIncident = {
       id: incidentId,
@@ -260,6 +271,7 @@ export const store = {
     persistHistory();
 
     activeIncident = null;
+    isSirenActive = false;
     persistActiveIncident();
 
     return closedRecord;
@@ -269,6 +281,7 @@ export const store = {
     if (!activeIncident) {
       return {
         active: false,
+        isSirenPlaying: isSirenActive,
         incident: null,
         totalStaff: staffList.length,
         accountedCount: 0,
@@ -323,6 +336,7 @@ export const store = {
 
     return {
       active: true,
+      isSirenPlaying: isSirenActive,
       incident: activeIncident,
       totalStaff: staffList.length,
       accountedCount,

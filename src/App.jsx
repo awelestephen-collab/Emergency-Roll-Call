@@ -7,6 +7,7 @@ import { InstallModal } from './components/InstallModal';
 import { ServerConfigModal } from './components/ServerConfigModal';
 import { NotificationBanner } from './components/NotificationBanner';
 import { NotificationModal } from './components/NotificationModal';
+import { soundSynthesizer } from './components/AudioAlarm';
 import {
   ShieldAlert,
   Users,
@@ -31,6 +32,9 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('alert')) {
       setActiveTab('checkin');
+    }
+    if (params.get('autoAlarm') === '1') {
+      soundSynthesizer.startSiren();
     }
   }, []);
 
