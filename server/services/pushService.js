@@ -29,6 +29,31 @@ if (!fs.existsSync(DATA_DIR)) {
 // In-memory cache of subscriptions
 let subscriptions = [];
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function buildAlertPayload(alertData = {}) {
+  return {
+    title: alertData.title || '🚨 EMERGENCY EVACUATION DRILL',
+    body: alertData.body || 'Immediate evacuation ordered! Tap to open muster roll-call.',
+    icon: alertData.icon || './icon-192.png',
+    badge: alertData.badge || './icon-192.png',
+    tag: alertData.tag || 'emergency-alert',
+    vibrate: alertData.vibrate || [500, 200, 500, 200, 1000],
+    requireInteraction: alertData.requireInteraction !== false, // Default true
+    renotify: true,
+    timestamp: alertData.timestamp || Date.now(),
+    data: {
+      alertId: alertData.alertId || `alert-${Date.now()}`,
+      url: alertData.url || './',
+      type: alertData.type || 'EVACUATION',
+      incidentId: alertData.incidentId || null,
+      ...alertData.data
+    }
+  };
+}
+
 function loadSubscriptions() {
   try {
     if (fs.existsSync(SUBS_FILE)) {
@@ -111,30 +136,30 @@ export const pushService = {
       TTL: 60 * 60 * 24, // 24 hours
       urgency: 'high' // Highest priority on FCM / APNs to wake sleeping devices
     };
-
-    return webpush.sendNotification(subscription, stringifiedPayload, options);
+    let attempt = 0;
+    let lastErr = null;
+    while (attempt < 3) {
+      try {
+        return await webpush.sendNotification(subscription, stringifiedPayload, options);
+      } catch (err) {
+        lastErr = err;
+        attempt += 1;
+        const status = err?.statusCode;
+        const isRetryable = status === 408 || status === 429 || (status >= 500 && status < 600);
+        if (!isRetryable || attempt >= 3) {
+          throw err;
+        }
+        await sleep(250 * attempt);
+      }
+    }
+    throw lastErr;
   },
 
   async broadcastAlert(alertData) {
-    const payload = {
-      title: alertData.title || '🚨 EMERGENCY EVACUATION DRILL',
-      body: alertData.body || 'Immediate evacuation ordered! Tap to open muster roll-call.',
-      icon: alertData.icon || './icon-192.png',
-      badge: alertData.badge || './icon-192.png',
-      tag: alertData.tag || 'emergency-alert',
-      vibrate: alertData.vibrate || [500, 200, 500, 200, 1000],
-      requireInteraction: alertData.requireInteraction !== false, // Default true
-      renotify: true,
-      timestamp: Date.now(),
-      data: {
-        url: alertData.url || './',
-        type: alertData.type || 'EVACUATION',
-        incidentId: alertData.incidentId || null,
-        ...alertData.data
-      }
-    };
+    const payload = buildAlertPayload(alertData);
+    const alertId = payload?.data?.alertId || 'unknown-alert';
 
-    console.log(`[PushService] Broadcasting push alert to ${subscriptions.length} registered device(s)...`);
+    console.log(`[PushService] Broadcasting alert ${alertId} to ${subscriptions.length} registered device(s)...`);
 
     let sent = 0;
     let failed = 0;
@@ -146,7 +171,7 @@ export const pushService = {
         sent++;
       } catch (err) {
         failed++;
-        console.warn(`[PushService] Push failed for ${item.deviceInfo || 'device'}:`, err.statusCode || err.message);
+        console.warn(`[PushService] Push failed for ${item.deviceInfo || 'device'} [${alertId}]:`, err.statusCode || err.message);
         // HTTP 404 or 410 means subscription is permanently expired or unsubscribed
         if (err.statusCode === 404 || err.statusCode === 410) {
           expiredEndpoints.push(item.subscription.endpoint);
@@ -165,7 +190,7 @@ export const pushService = {
       saveSubscriptions();
     }
 
-    console.log(`[PushService] Push broadcast complete: ${sent} sent, ${failed} failed, ${expiredEndpoints.length} pruned.`);
+    console.log(`[PushService] Push broadcast complete [${alertId}]: ${sent} sent, ${failed} failed, ${expiredEndpoints.length} pruned.`);
     return { sent, failed, pruned: expiredEndpoints.length, total: subscriptions.length };
   }
 };

@@ -1,4 +1,5 @@
 import { store } from './server/store.js';
+import { buildAlertPayload } from './server/services/pushService.js';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -90,7 +91,18 @@ try {
   const excelBuf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   console.log(`[PASS] Excel generated successfully (${excelBuf.length} bytes)`);
 
-  console.log('\n>>> ALL 9 TESTS PASSED SUCCESSFULLY! <<<');
+  // Test 10: Alert payload shape for lock-screen + deep-link handling
+  const payload = buildAlertPayload({
+    alertId: 'alert-test-001',
+    incidentId: 'INC-123',
+    data: { url: './' }
+  });
+  if (!payload.requireInteraction) throw new Error('Emergency alert payload should require interaction by default');
+  if (payload.data.alertId !== 'alert-test-001') throw new Error('Alert payload should preserve alertId');
+  if (payload.data.incidentId !== 'INC-123') throw new Error('Alert payload should include incidentId');
+  console.log('[PASS] Alert payload defaults validated for emergency lock-screen delivery');
+
+  console.log('\n>>> ALL 10 TESTS PASSED SUCCESSFULLY! <<<');
 } catch (err) {
   console.error('TEST FAILED:', err);
   process.exit(1);

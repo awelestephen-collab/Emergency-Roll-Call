@@ -99,6 +99,13 @@ export function NotificationModal({ isOpen, onClose }) {
     }, 3000);
   };
 
+  const handleOpenSettings = () => {
+    const opened = pushManager.openNotificationSettings();
+    if (!opened) {
+      setTestStatus('⚠️ Open browser/device settings and allow Notifications for this site, then try again.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 text-slate-100 overflow-hidden">
@@ -165,6 +172,18 @@ export function NotificationModal({ isOpen, onClose }) {
         {testStatus && (
           <div className="mb-4 p-3 rounded-xl bg-slate-800 border border-slate-700 text-xs font-medium text-amber-200">
             {testStatus}
+          </div>
+        )}
+
+        {permission === 'denied' && (
+          <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-700/50 text-xs text-red-100">
+            <p className="font-semibold">Notifications are blocked for this app.</p>
+            <button
+              onClick={handleOpenSettings}
+              className="mt-1 font-bold underline underline-offset-2 text-red-200 hover:text-white"
+            >
+              Open notification settings
+            </button>
           </div>
         )}
 

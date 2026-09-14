@@ -4,6 +4,7 @@ import { pushService } from '../services/pushService.js';
 
 export function createIncidentsRouter(io) {
   const router = express.Router();
+  const buildAlertId = (scope) => `${scope}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   // GET /api/incidents/active - Current incident and live roster
   router.get('/active', (req, res) => {
@@ -28,7 +29,9 @@ export function createIncidentsRouter(io) {
       });
 
       // Broadcast to all connected sockets
-      io.emit('emergency_declared', summary);
+      const alertId = buildAlertId('declare');
+      console.log(`[AlertDispatch] emergency_declared ${alertId} incident=${summary.incident.id}`);
+      io.emit('emergency_declared', { ...summary, alertId });
 
       // Broadcast Web Push to wake up locked/closed mobile devices
       const isDrill = !!simulatedDrill;
@@ -40,6 +43,7 @@ export function createIncidentsRouter(io) {
         : `CRITICAL ALERT declared by ${summary.incident.declaredBy}! Evacuate immediately and tap here to check in.`;
 
       pushService.broadcastAlert({
+        alertId,
         title: incidentTitle,
         body: incidentBody,
         tag: 'emergency-alert',
@@ -75,10 +79,13 @@ export function createIncidentsRouter(io) {
         escalationThresholdSeconds: 300
       });
 
-      io.emit('emergency_declared', summary);
+      const alertId = buildAlertId('sensor');
+      console.log(`[AlertDispatch] trigger-alarm ${alertId} incident=${summary.incident.id}`);
+      io.emit('emergency_declared', { ...summary, alertId });
 
       // Web Push alert
       pushService.broadcastAlert({
+        alertId,
         title: '🚨 FIRE ALARM SENSOR TRIPPED',
         body: `Building alarm sensor active in: ${zone}. Evacuate immediately and check in!`,
         tag: 'emergency-alert',
@@ -105,10 +112,12 @@ export function createIncidentsRouter(io) {
       });
 
       const summary = store.getRosterSummary();
-      io.emit('all_clear_declared', { closedRecord, summary });
+      const alertId = buildAlertId('all-clear');
+      io.emit('all_clear_declared', { closedRecord, summary, alertId });
 
       // Web Push all clear
       pushService.broadcastAlert({
+        alertId,
         title: '✅ ALL CLEAR DECLARED',
         body: `All Clear declared by ${closedBy || 'Chief Warden'}. You may safely return to your designated areas.`,
         tag: 'emergency-all-clear',
@@ -126,10 +135,13 @@ export function createIncidentsRouter(io) {
   router.post('/siren', (req, res) => {
     try {
       const { playing } = req.body;
-      io.emit('siren_state_changed', { playing: !!playing });
+      const alertId = buildAlertId('siren');
+      io.emit('siren_state_changed', { playing: !!playing, alertId });
+      console.log(`[AlertDispatch] siren_state_changed ${alertId} playing=${!!playing}`);
 
       if (playing) {
         pushService.broadcastAlert({
+          alertId,
           title: '🚨 EVACUATION SIREN SOUNDING',
           body: 'Safety Warden has sounded the evacuation alarm! Evacuate immediately!',
           tag: 'emergency-siren',

@@ -82,6 +82,14 @@ Open your browser at:
 npm run test:api
 ```
 
+### 4. Enable Emergency Lock-Screen Alerts on Every Device
+- Open the app on each staff phone and tap **Enable Lock-Screen Alerts**.
+- Accept browser notification permission when prompted.
+- If permission was denied previously, re-enable notifications from browser/system settings, then retry in-app.
+- Use **Test Phone Alert** from the notification UI to verify delivery while the phone is locked.
+
+> Important platform limitation: Browser PWAs can trigger high-priority notifications with vibration and persistent lock-screen banners, but they cannot force device media volume or bypass OS Do Not Disturb policies.
+
 ---
 
 ## API Reference

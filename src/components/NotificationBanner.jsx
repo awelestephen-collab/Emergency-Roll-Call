@@ -47,6 +47,13 @@ export function NotificationBanner() {
     }
   };
 
+  const handleOpenSettings = () => {
+    const opened = pushManager.openNotificationSettings();
+    if (!opened) {
+      setTestStatus('⚠️ Open your browser/app settings and allow Notifications for this site, then return and retry.');
+    }
+  };
+
   const handleTestAlert = async () => {
     setIsLoading(true);
     setTestStatus('⏳ Sending alert... Lock your phone screen NOW to test!');
@@ -100,9 +107,17 @@ export function NotificationBanner() {
                   Allows your phone to ring and vibrate during evacuation drills even when the screen is locked or the app is closed.
                 </p>
                 {permission === 'denied' && (
-                  <p className="text-xs text-amber-300 font-semibold mt-1">
-                    ⚠️ Notifications are currently blocked in your browser. Tap the tune/padlock icon in your address bar above to allow notifications.
-                  </p>
+                  <div className="mt-1 space-y-1">
+                    <p className="text-xs text-amber-300 font-semibold">
+                      ⚠️ Notifications are currently blocked. Re-enable them from browser/system settings.
+                    </p>
+                    <button
+                      onClick={handleOpenSettings}
+                      className="text-[11px] font-bold text-red-200 underline underline-offset-2 hover:text-white"
+                    >
+                      Open notification settings
+                    </button>
+                  </div>
                 )}
                 {testStatus && (
                   <p className="text-xs text-amber-200 mt-1 font-medium">{testStatus}</p>
