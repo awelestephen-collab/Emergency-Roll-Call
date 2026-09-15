@@ -1,5 +1,5 @@
 // Service Worker for Emergency Roll Call PWA
-const CACHE_NAME = 'emergency-roll-call-v11';
+const CACHE_NAME = 'emergency-roll-call-v12';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -134,7 +134,18 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    self.registration.showNotification(title, options).then(() => {
+      // Also broadcast to any open clients so active tabs trigger siren immediately
+      return clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+        for (const client of windowClients) {
+          client.postMessage({
+            type: 'BACKGROUND_PUSH_RECEIVED',
+            title,
+            data: options.data
+          });
+        }
+      });
+    })
   );
 });
 
@@ -147,9 +158,15 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If a window is already open, focus it
+      // If a window is already open, notify and focus it
       for (const client of windowClients) {
         if ('focus' in client) {
+          client.postMessage({
+            type: 'TRIGGER_EMERGENCY_ALARM',
+            url: targetUrl,
+            incidentId: event.notification.data?.incidentId,
+            alertId: event.notification.data?.alertId
+          });
           if ('navigate' in client && client.url !== targetUrl) {
             return client.navigate(targetUrl).then(() => client.focus());
           }

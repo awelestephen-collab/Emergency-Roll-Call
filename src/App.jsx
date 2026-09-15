@@ -38,6 +38,27 @@ function AppContent() {
       soundSynthesizer.grantSoundPermission();
       soundSynthesizer.unlockAudio();
       soundSynthesizer.startSiren();
+      try {
+        const cleanUrl = window.location.pathname + (params.get('alert') ? `?alert=${params.get('alert')}` : '');
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch {}
+    }
+
+    // Bridge incoming Service Worker lock-screen notifications and pushes
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      const handleSwMessage = (event) => {
+        if (event.data?.type === 'TRIGGER_EMERGENCY_ALARM' || event.data?.type === 'BACKGROUND_PUSH_RECEIVED') {
+          console.info('[App] Received background alarm trigger from Service Worker:', event.data);
+          setActiveTab('checkin');
+          soundSynthesizer.grantSoundPermission();
+          soundSynthesizer.unlockAudio();
+          soundSynthesizer.startSiren();
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      };
     }
   }, []);
 

@@ -8,10 +8,59 @@ import sirenSoundUrl from '../assets/siren.wav';
 
 const STORAGE_KEY_SOUND_PERM = 'emergency_sound_permission'; // 'granted', 'denied', or 'prompt'
 
+/**
+ * Generates an in-memory 2-second silent PCM WAV Blob URL.
+ * Used as an inaudible background audio carrier to prevent mobile browsers
+ * (iOS Safari / Android Chrome) from suspending JavaScript execution, WebSockets,
+ * and audio pipelines when the screen is locked or the app is minimized.
+ */
+function createSilentAudioBlobUrl(durationSeconds = 2) {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return '';
+  try {
+    const sampleRate = 8000;
+    const numChannels = 1;
+    const numSamples = sampleRate * durationSeconds;
+    const buffer = new ArrayBuffer(44 + numSamples);
+    const view = new DataView(buffer);
+
+    // "RIFF" chunk
+    view.setUint32(0, 0x52494646, false);
+    view.setUint32(4, 36 + numSamples, true);
+    view.setUint32(8, 0x57415645, false); // "WAVE"
+
+    // "fmt " chunk
+    view.setUint32(12, 0x666d7420, false);
+    view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+    view.setUint16(20, 1, true); // AudioFormat (1 = PCM)
+    view.setUint16(22, numChannels, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels, true); // Byte rate
+    view.setUint16(32, numChannels, true); // Block align
+    view.setUint16(34, 8, true); // Bits per sample (8-bit)
+
+    // "data" chunk
+    view.setUint32(36, 0x64617461, false);
+    view.setUint32(40, numSamples, true);
+
+    // 8-bit unsigned PCM: 128 represents exact zero-amplitude silence
+    const bytes = new Uint8Array(buffer, 44, numSamples);
+    bytes.fill(128);
+
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    return URL.createObjectURL(blob);
+  } catch (e) {
+    console.warn('[AudioAlarm] Could not create silent carrier blob:', e);
+    return '';
+  }
+}
+
 class SoundSynthesizer {
   constructor() {
     this.audioCtx = null;
     this.audioElement = null;
+    this.silentAudioElement = null;
+    this.silentBlobUrl = null;
+    this.isSilentCarrierActive = false;
     // Sound permission state: 'prompt' (not enabled by default), 'granted', or 'denied'
     this.soundPermission = typeof window !== 'undefined'
       ? (localStorage.getItem(STORAGE_KEY_SOUND_PERM) || 'prompt')
@@ -26,12 +75,12 @@ class SoundSynthesizer {
     this.isAutoplayBlocked = false;
     this.isSirenPlaying = false;
     this.hasActiveGestureListener = false;
-    this.keepAliveInterval = null;
     this.blockedListeners = new Set();
     this.permissionListeners = new Set();
 
     if (typeof window !== 'undefined') {
       this.initAudioElement();
+      this.initSilentCarrier();
     }
   }
 
@@ -56,6 +105,7 @@ class SoundSynthesizer {
       localStorage.setItem(STORAGE_KEY_SOUND_PERM, 'granted');
     } catch {}
     this.unlockAudio();
+    this.startSilentCarrier();
     this.playTestSound();
     this.permissionListeners.forEach(cb => cb('granted'));
   }
@@ -64,6 +114,8 @@ class SoundSynthesizer {
     this.soundPermission = 'denied';
     this.isMuted = true;
     this.stopSiren();
+    this.stopSilentCarrier();
+    this.updateMediaSession(false);
     try {
       localStorage.setItem(STORAGE_KEY_SOUND_PERM, 'denied');
     } catch {}
@@ -74,6 +126,8 @@ class SoundSynthesizer {
     this.soundPermission = 'prompt';
     this.isMuted = true;
     this.stopSiren();
+    this.stopSilentCarrier();
+    this.updateMediaSession(false);
     try {
       localStorage.removeItem(STORAGE_KEY_SOUND_PERM);
     } catch {}
@@ -109,6 +163,58 @@ class SoundSynthesizer {
     }
   }
 
+  initSilentCarrier() {
+    if (this.silentAudioElement || typeof window === 'undefined') return;
+    try {
+      if (!this.silentBlobUrl) {
+        this.silentBlobUrl = createSilentAudioBlobUrl(2);
+      }
+      if (this.silentBlobUrl) {
+        const silentAudio = new Audio();
+        silentAudio.src = this.silentBlobUrl;
+        silentAudio.loop = true;
+        silentAudio.preload = 'auto';
+        silentAudio.volume = 0.001; // Inaudible to human ear, but keeps mobile audio hardware pipe alive
+        silentAudio.crossOrigin = 'anonymous';
+        this.silentAudioElement = silentAudio;
+      }
+    } catch (e) {
+      console.warn('[AudioAlarm] Could not initialize silent carrier element:', e);
+    }
+  }
+
+  startSilentCarrier() {
+    if (typeof window === 'undefined' || this.isSirenPlaying) return;
+    if (!this.isSoundEnabled()) return;
+
+    this.initSilentCarrier();
+    if (this.silentAudioElement) {
+      try {
+        const playPromise = this.silentAudioElement.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            this.isSilentCarrierActive = true;
+            this.updateMediaSession(false);
+          }).catch(() => {
+            this.isSilentCarrierActive = false;
+          });
+        }
+      } catch (e) {
+        this.isSilentCarrierActive = false;
+      }
+    }
+  }
+
+  stopSilentCarrier() {
+    if (this.silentAudioElement) {
+      try {
+        this.silentAudioElement.pause();
+        this.silentAudioElement.currentTime = 0;
+      } catch (e) {}
+    }
+    this.isSilentCarrierActive = false;
+  }
+
   initContext() {
     if (!this.audioCtx && typeof window !== 'undefined') {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -129,6 +235,7 @@ class SoundSynthesizer {
   unlockAudio() {
     this.initContext();
     this.initAudioElement();
+    this.initSilentCarrier();
 
     // 1. Physically unlock Web Audio API using a tiny 1-sample silent buffer
     if (this.audioCtx) {
@@ -172,28 +279,49 @@ class SoundSynthesizer {
     }
 
     this.isUnlocked = true;
-    this.startKeepAlive();
+
+    // 3. Keep mobile OS audio pipeline active with the continuous silent carrier
+    if (this.isSoundEnabled() && !this.isSirenPlaying) {
+      this.startSilentCarrier();
+    }
   }
 
-  /**
-   * Periodic inaudible pulse to prevent iOS Safari and Android Chrome from putting
-   * the AudioContext into power-saving suspended mode while the app is running.
-   */
-  startKeepAlive() {
-    if (this.keepAliveInterval || typeof window === 'undefined') return;
-    this.keepAliveInterval = setInterval(() => {
-      if (this.audioCtx && this.audioCtx.state === 'running' && !this.isSirenPlaying) {
-        try {
-          const osc = this.audioCtx.createOscillator();
-          const gain = this.audioCtx.createGain();
-          gain.gain.setValueAtTime(0.00001, this.audioCtx.currentTime); // Inaudible to human ear
-          osc.connect(gain);
-          gain.connect(this.audioCtx.destination);
-          osc.start();
-          osc.stop(this.audioCtx.currentTime + 0.05);
-        } catch {}
+  updateMediaSession(isEmergency = false) {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    try {
+      if (isEmergency) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: '🚨 EMERGENCY EVACUATION SIREN ACTIVE',
+          artist: 'Life Safety Roll Call',
+          album: 'Muster Alarm System'
+        });
+        navigator.mediaSession.playbackState = 'playing';
+      } else if (this.isSoundEnabled() && this.isSilentCarrierActive) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: '🛡️ Life Safety Standby Active',
+          artist: 'Emergency Roll Call',
+          album: 'Muster Alarm Standby'
+        });
+        navigator.mediaSession.playbackState = 'playing';
+      } else {
+        navigator.mediaSession.playbackState = 'none';
       }
-    }, 15000);
+
+      // Lock screen control handlers
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (this.isSirenPlaying) {
+          this.startSiren();
+        } else if (this.isSoundEnabled()) {
+          this.startSilentCarrier();
+        }
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        this.stopSiren();
+      });
+      navigator.mediaSession.setActionHandler('stop', () => {
+        this.stopSiren();
+      });
+    } catch (e) {}
   }
 
   toggleMute() {
@@ -204,6 +332,10 @@ class SoundSynthesizer {
     this.isMuted = !this.isMuted;
     if (this.isMuted) {
       this.stopSiren();
+      this.stopSilentCarrier();
+      this.updateMediaSession(false);
+    } else {
+      this.startSilentCarrier();
     }
     return this.isMuted;
   }
@@ -328,6 +460,7 @@ class SoundSynthesizer {
    */
   startSiren() {
     this.isSirenPlaying = true;
+    this.stopSilentCarrier();
     this.startVibrationLoop();
 
     if (!this.isSoundEnabled()) {
@@ -343,6 +476,7 @@ class SoundSynthesizer {
     if (this.audioElement) {
       try {
         this.audioElement.volume = 1.0;
+        this.audioElement.currentTime = 0;
         const playPromise = this.audioElement.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
@@ -416,16 +550,7 @@ class SoundSynthesizer {
     }
 
     // 3. Register with OS lock screen media controls
-    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: '🚨 EMERGENCY EVACUATION SIREN ACTIVE',
-          artist: 'Life Safety Roll Call',
-          album: 'Muster Alarm System'
-        });
-        navigator.mediaSession.playbackState = 'playing';
-      } catch (mErr) {}
-    }
+    this.updateMediaSession(true);
   }
 
   isVibrationSupported() {
@@ -527,10 +652,11 @@ class SoundSynthesizer {
       this.sirenGain = null;
     }
 
-    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-      try {
-        navigator.mediaSession.playbackState = 'none';
-      } catch (mErr) {}
+    this.updateMediaSession(false);
+
+    // Resume background silent carrier so mobile OS media lock remains active for future alerts
+    if (this.isSoundEnabled()) {
+      this.startSilentCarrier();
     }
   }
 }
@@ -556,6 +682,8 @@ if (typeof window !== 'undefined') {
         soundSynthesizer.unlockAudio();
         if (soundSynthesizer.isSirenPlaying && !soundSynthesizer.isMuted) {
           soundSynthesizer.startSiren();
+        } else if (soundSynthesizer.isSoundEnabled()) {
+          soundSynthesizer.startSilentCarrier();
         }
       }
     });
