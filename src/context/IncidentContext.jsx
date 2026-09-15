@@ -13,7 +13,7 @@ const STORAGE_KEY_ROSTER = 'emergency_roster_state';
 const STORAGE_KEY_HISTORY = 'emergency_incident_history';
 const STORAGE_KEY_CUSTOM_STAFF = 'emergency_custom_staff';
 const STORAGE_KEY_DIR_VERSION = 'emergency_directory_version';
-const CURRENT_DIRECTORY_VERSION = 'v3_falcon_76_official';
+const CURRENT_DIRECTORY_VERSION = 'v4_standby_default';
 
 // Helper to compute stats from roster
 function computeStats(rosterList, musterList) {
@@ -55,7 +55,7 @@ function computeStats(rosterList, musterList) {
 }
 
 export function IncidentProvider({ children }) {
-  // Clear any legacy demo data cache so all phones receive the new 76 official staff list
+  // Clear any legacy demo data cache so all phones receive the new 76 official staff list and clear stale active incidents
   if (typeof window !== 'undefined') {
     try {
       const ver = localStorage.getItem(STORAGE_KEY_DIR_VERSION);
@@ -79,14 +79,22 @@ export function IncidentProvider({ children }) {
     return DEFAULT_STAFF;
   });
 
-  // Active incident initialized from localStorage or null
+  // Active incident initialized from localStorage or null (Never restore stale emergencies on fresh load)
   const [activeIncident, setActiveIncident] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_ACTIVE_INCIDENT);
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const ageMs = Date.now() - new Date(parsed.declaredAt).getTime();
+        // Discard any incident older than 30 minutes
+        if (parsed.status === 'ACTIVE' && ageMs < 30 * 60 * 1000) {
+          return parsed;
+        } else {
+          localStorage.removeItem(STORAGE_KEY_ACTIVE_INCIDENT);
+        }
+      }
+    } catch {}
+    return null;
   });
 
   // Roster initialized from localStorage or default staff
@@ -590,28 +598,6 @@ export function IncidentProvider({ children }) {
       }
       return s;
     }));
-
-    // If no incident was currently active, establish a local active roll-call session
-    if (!activeIncident) {
-      setActiveIncident({
-        id: `INC-${Date.now().toString().slice(-6)}`,
-        type: 'Roll-Call & Evacuation Session',
-        declaredBy: targetStaff?.name || 'Safety System',
-        declaredAt: now,
-        status: 'ACTIVE',
-        notes: 'Session active on staff check-in.',
-        isDrill: true,
-        escalationThresholdSeconds: 300,
-        checkIns: { [id]: checkInRecord },
-        timeline: [
-          {
-            timestamp: now,
-            action: 'CHECK_IN',
-            description: `${targetStaff?.name || id} checked in as ${status} at ${targetMuster.name}.`
-          }
-        ]
-      });
-    }
 
     // Silence siren if checked in safe; play chime or warning beep
     if (status === 'SAFE') {

@@ -23,6 +23,7 @@ let musterPoints = [];
 let incidentHistory = [];
 let activeIncident = null;
 let isSirenActive = false;
+let standbyCheckIns = {};
 
 try {
   if (fs.existsSync(STAFF_FILE)) {
@@ -139,6 +140,7 @@ export const store = {
     const now = new Date().toISOString();
     const incidentId = `INC-${Date.now().toString().slice(-6)}`;
     isSirenActive = true;
+    standbyCheckIns = {}; // Clear standby records on live emergency
     
     activeIncident = {
       id: incidentId,
@@ -164,33 +166,6 @@ export const store = {
   },
 
   recordCheckIn({ staffId, musterPointId = 'MUSTER-A', status = 'SAFE', checkInMethod = 'SELF_APP', gps = null, notes = '', verifiedBy = null }) {
-    // If no incident is currently active, automatically initialize an emergency roll-call/drill session
-    // so staff check-ins never fail even if tested during standby or drill preparation
-    if (!activeIncident || activeIncident.status !== 'ACTIVE') {
-      const now = new Date().toISOString();
-      const incidentId = `INC-${Date.now().toString().slice(-6)}`;
-      isSirenActive = false; // keep siren off for passive check-in on standby unless declared
-      activeIncident = {
-        id: incidentId,
-        type: 'Evacuation Roll-Call / Check-In Session',
-        declaredBy: verifiedBy || 'Safety System (Auto-Activated)',
-        declaredAt: now,
-        status: 'ACTIVE',
-        notes: 'Session activated on staff check-in.',
-        isDrill: true,
-        escalationThresholdSeconds: 300,
-        checkIns: {},
-        timeline: [
-          {
-            timestamp: now,
-            action: 'EMERGENCY_DECLARED',
-            description: `Session activated on staff check-in at muster station.`
-          }
-        ]
-      };
-      persistActiveIncident();
-    }
-
     let staffMember = staffList.find(s => s.id === staffId);
     if (!staffMember) {
       // If staff member was added on client or is unlisted, auto-register to prevent check-in failure
@@ -242,18 +217,20 @@ export const store = {
       notes
     };
 
-    activeIncident.checkIns[staffId] = checkInRecord;
+    if (activeIncident && activeIncident.status === 'ACTIVE') {
+      activeIncident.checkIns[staffId] = checkInRecord;
+      activeIncident.timeline.push({
+        timestamp: now,
+        action: status === 'NEEDS_ASSISTANCE' ? 'ASSISTANCE_REQUESTED' : 'CHECK_IN',
+        staffId,
+        staffName: staffMember.name,
+        description: `${staffMember.name} checked in as ${status} at ${musterPoint.name} (${checkInMethod})`
+      });
+      persistActiveIncident();
+    } else {
+      standbyCheckIns[staffId] = checkInRecord;
+    }
 
-    // Append to timeline
-    activeIncident.timeline.push({
-      timestamp: now,
-      action: status === 'NEEDS_ASSISTANCE' ? 'ASSISTANCE_REQUESTED' : 'CHECK_IN',
-      staffId,
-      staffName: staffMember.name,
-      description: `${staffMember.name} checked in as ${status} at ${musterPoint.name} (${checkInMethod})`
-    });
-
-    persistActiveIncident();
     return this.getRosterSummary();
   },
 
@@ -315,31 +292,16 @@ export const store = {
 
     activeIncident = null;
     isSirenActive = false;
+    standbyCheckIns = {};
     persistActiveIncident();
 
     return closedRecord;
   },
 
   getRosterSummary() {
-    if (!activeIncident) {
-      return {
-        active: false,
-        isSirenPlaying: isSirenActive,
-        incident: null,
-        totalStaff: staffList.length,
-        accountedCount: 0,
-        unaccountedCount: staffList.length,
-        manualSightCount: 0,
-        assistanceNeededCount: 0,
-        roster: staffList.map(s => ({
-          ...s,
-          status: 'UNACCOUNTED',
-          checkIn: null
-        }))
-      };
-    }
+    const isLive = !!(activeIncident && activeIncident.status === 'ACTIVE');
+    const checkIns = isLive ? (activeIncident.checkIns || {}) : (standbyCheckIns || {});
 
-    const checkIns = activeIncident.checkIns || {};
     let accountedCount = 0;
     let manualSightCount = 0;
     let assistanceNeededCount = 0;
@@ -349,8 +311,8 @@ export const store = {
       musterPointBreakdown[m.id] = 0;
     });
 
-    const roster = staffList.map(staff => {
-      const checkIn = checkIns[staff.id];
+    const roster = staffList.map(person => {
+      const checkIn = checkIns[person.id];
       let status = 'UNACCOUNTED';
 
       if (checkIn) {
@@ -368,23 +330,20 @@ export const store = {
       }
 
       return {
-        ...staff,
-        status, // 'UNACCOUNTED' (Red), 'SAFE' (Green), 'MANUAL_SIGHT_CONFIRMED' (Yellow/Blue), 'NEEDS_ASSISTANCE' (Orange/Pulse)
+        ...person,
+        status,
         checkIn: checkIn || null
       };
     });
 
-    const unaccountedCount = staffList.length - accountedCount;
-    const accountabilityPercentage = staffList.length > 0 ? Math.round((accountedCount / staffList.length) * 100) : 100;
-
     return {
-      active: true,
-      isSirenPlaying: isSirenActive,
-      incident: activeIncident,
+      active: isLive,
+      isSirenPlaying: isLive ? isSirenActive : false,
+      incident: isLive ? activeIncident : null,
       totalStaff: staffList.length,
       accountedCount,
-      unaccountedCount,
-      accountabilityPercentage,
+      unaccountedCount: staffList.length - accountedCount,
+      accountabilityPercentage: staffList.length > 0 ? Math.round((accountedCount / staffList.length) * 100) : 100,
       manualSightCount,
       assistanceNeededCount,
       musterPointBreakdown,
