@@ -9,7 +9,9 @@ import {
   Smartphone,
   ShieldCheck,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { pushManager } from '../services/pushManager';
 import { getApiUrl } from '../config/api';
