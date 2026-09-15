@@ -338,7 +338,7 @@ export const store = {
 
     return {
       active: isLive,
-      isSirenPlaying: isLive ? isSirenActive : false,
+      isSirenPlaying: isSirenActive,
       incident: isLive ? activeIncident : null,
       totalStaff: staffList.length,
       accountedCount,
