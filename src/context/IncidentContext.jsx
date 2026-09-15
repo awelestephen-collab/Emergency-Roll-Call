@@ -269,8 +269,9 @@ export function IncidentProvider({ children }) {
     const userAlreadySafe = checkSafe(summary.roster || rosterRef.current);
 
     if (summary.incident !== undefined) {
-      setActiveIncident(summary.incident);
-      if (summary.incident && summary.incident.status === 'ACTIVE' && !isAudioMutedRef.current && !userAlreadySafe) {
+      const isIncidentActive = summary.incident && summary.incident.status === 'ACTIVE';
+      setActiveIncident(isIncidentActive ? summary.incident : null);
+      if (isIncidentActive && !isAudioMutedRef.current && !userAlreadySafe) {
         setIsSirenPlaying(true);
         soundSynthesizer.startSiren();
       } else {
@@ -807,7 +808,9 @@ export function IncidentProvider({ children }) {
       });
       if (res.ok) {
         const data = await res.json();
-        applySummary(data);
+        if (data?.summary) {
+          applySummary(data.summary);
+        }
       }
     } catch {}
 

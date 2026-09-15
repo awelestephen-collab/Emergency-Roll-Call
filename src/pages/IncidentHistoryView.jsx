@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { getApiUrl } from '../config/api';
+import { DEFAULT_HISTORICAL_DRILL } from '../data/initialData';
 
 export function IncidentHistoryView() {
   const { staffDirectory, roster } = useIncident();
@@ -27,14 +28,35 @@ export function IncidentHistoryView() {
       const res = await fetch(getApiUrl('/api/incidents/history'));
       if (res.ok) {
         const data = await res.json();
-        setHistory(data);
-        if (data.length > 0 && !selectedIncident) {
-          setSelectedIncident(data[0]);
+        if (Array.isArray(data) && data.length > 0) {
+          setHistory(data);
+          if (!selectedIncident) {
+            setSelectedIncident(data[0]);
+          }
+          return;
         }
       }
     } catch (e) {
-      console.error('Error fetching history:', e);
+      console.warn('Backend history fetch notice:', e.message);
     } finally {
+      // LocalStorage / bundled fallback for standalone / GitHub Pages mode
+      try {
+        const saved = localStorage.getItem('emergency_incident_history');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setHistory(parsed);
+            if (!selectedIncident) setSelectedIncident(parsed[0]);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {}
+      // Default fallback
+      if (DEFAULT_HISTORICAL_DRILL) {
+        setHistory([DEFAULT_HISTORICAL_DRILL]);
+        if (!selectedIncident) setSelectedIncident(DEFAULT_HISTORICAL_DRILL);
+      }
       setLoading(false);
     }
   };

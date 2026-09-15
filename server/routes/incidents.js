@@ -125,7 +125,13 @@ export function createIncidentsRouter(io) {
         data: { url: './' }
       }).catch(err => console.error('[PushBroadcast] Error in /all-clear:', err));
 
-      res.json({ message: 'Incident closed successfully', incident: closedRecord });
+      res.json({
+        success: true,
+        message: 'Incident closed successfully',
+        incident: closedRecord,
+        closedRecord,
+        summary
+      });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
