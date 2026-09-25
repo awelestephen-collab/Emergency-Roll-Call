@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { soundSynthesizer } from '../components/AudioAlarm';
 import { DEFAULT_STAFF, DEFAULT_MUSTER_POINTS, DEFAULT_HISTORICAL_DRILL } from '../data/initialData';
 import { getBackendUrl, getApiUrl } from '../config/api';
+import { m365Auth } from '../services/m365Auth';
 
 const IncidentContext = createContext(null);
 
@@ -159,6 +160,21 @@ export function IncidentProvider({ children }) {
     } catch {}
     return null;
   });
+
+  // M365 Authenticated Session State
+  const [m365User, setM365User] = useState(() => m365Auth.getUser());
+  useEffect(() => {
+    return m365Auth.subscribe((user) => {
+      setM365User(user);
+      if (user) {
+        // Automatically sync current active staff member with M365 account
+        const matched = staffDirectory.find(s => s.id === user.id || (s.email && s.email.toLowerCase() === user.email.toLowerCase()));
+        if (matched) {
+          setCurrentUser(matched);
+        }
+      }
+    });
+  }, [staffDirectory]);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState([]);
@@ -693,13 +709,21 @@ export function IncidentProvider({ children }) {
     return { success: true, clientMode: true, overrideRecord };
   };
 
-  // Declare emergency
-  const declareEmergency = async ({ type = 'Fire Evacuation', declaredBy = 'Safety Warden', notes = '', simulatedDrill = false, escalationThresholdSeconds = 300 }) => {
+  // Declare emergency - Strictly restricted to verified M365 Safety Wardens
+  const declareEmergency = async ({ type = 'Fire Evacuation', declaredBy, notes = '', simulatedDrill = false, escalationThresholdSeconds = 300 }) => {
+    const warden = m365Auth.getUser();
+    if (!warden || !warden.isWarden) {
+      throw new Error('ACCESS_DENIED: Microsoft 365 Designated Safety Warden authorization required to declare emergency evacuations.');
+    }
+
+    const effectiveDeclaredBy = declaredBy || `${warden.name} (${warden.email}) - Safety Warden`;
+    const declaredByEmail = warden.email;
     const now = new Date().toISOString();
     const newIncident = {
       id: `INC-${Date.now().toString().slice(-6)}`,
       type,
-      declaredBy,
+      declaredBy: effectiveDeclaredBy,
+      declaredByEmail,
       declaredAt: now,
       status: 'ACTIVE',
       notes,
@@ -710,7 +734,7 @@ export function IncidentProvider({ children }) {
         {
           timestamp: now,
           action: 'EMERGENCY_DECLARED',
-          description: `${type} declared by ${declaredBy}.`
+          description: `${type} declared by ${effectiveDeclaredBy}.`
         }
       ]
     };
@@ -719,7 +743,14 @@ export function IncidentProvider({ children }) {
       const res = await fetch(getApiUrl('/api/incidents/declare'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, declaredBy, notes, simulatedDrill, escalationThresholdSeconds })
+        body: JSON.stringify({
+          type,
+          declaredBy: effectiveDeclaredBy,
+          declaredByEmail,
+          notes,
+          simulatedDrill,
+          escalationThresholdSeconds
+        })
       });
       if (res.ok) {
         const data = await res.json();
@@ -763,8 +794,15 @@ export function IncidentProvider({ children }) {
     return clientSummary;
   };
 
-  // Issue all-clear
-  const issueAllClear = async ({ closedBy = 'Chief Safety Warden', finalNotes = '' }) => {
+  // Issue all-clear - Strictly restricted to verified M365 Safety Wardens
+  const issueAllClear = async ({ closedBy, finalNotes = '' }) => {
+    const warden = m365Auth.getUser();
+    if (!warden || !warden.isWarden) {
+      throw new Error('ACCESS_DENIED: Microsoft 365 Designated Safety Warden authorization required to issue All-Clear.');
+    }
+
+    const effectiveClosedBy = closedBy || `${warden.name} (${warden.email}) - Safety Warden`;
+    const closedByEmail = warden.email;
     const now = new Date().toISOString();
     const duration = activeIncident ? Math.max(1, Math.floor((Date.now() - new Date(activeIncident.declaredAt).getTime()) / 1000)) : 180;
 
@@ -973,7 +1011,12 @@ export function IncidentProvider({ children }) {
         addStaffMember,
         deleteStaffMember,
         importStaffList,
-        resetStaffDirectory
+        resetStaffDirectory,
+        m365User,
+        isM365Authenticated: !!m365User,
+        isWardenAuthenticated: !!m365User?.isWarden,
+        loginM365: (opts) => m365Auth.loginWithMicrosoft(opts),
+        logoutM365: () => m365Auth.logout()
       }}
     >
       {children}

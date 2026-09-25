@@ -24,8 +24,11 @@ import {
   AlertTriangle,
   Building,
   Check,
-  X
+  X,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
+import { M365AuthModal } from '../components/M365AuthModal';
 
 export function WardenDashboardView() {
   const {
@@ -42,7 +45,10 @@ export function WardenDashboardView() {
     submitWardenOverride,
     declareEmergency,
     issueAllClear,
-    currentUser
+    currentUser,
+    m365User,
+    isM365Authenticated,
+    isWardenAuthenticated
   } = useIncident();
 
   const [activeMusterTab, setActiveMusterTab] = useState('ALL');
@@ -54,6 +60,7 @@ export function WardenDashboardView() {
   const [showAllClearModal, setShowAllClearModal] = useState(false);
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Form states for declare
   const [declareType, setDeclareType] = useState('Fire Evacuation');
@@ -250,14 +257,34 @@ export function WardenDashboardView() {
                 <span>Handover ({unaccountedStaff.length})</span>
               </button>
 
-              <button
-                onClick={() => setShowAllClearModal(true)}
-                className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-colors shadow-lg"
-              >
-                <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>All-Clear</span>
-              </button>
+              {!isWardenAuthenticated ? (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-slate-700 text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                  title="Microsoft 365 Safety Warden authorization required for All-Clear"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>All-Clear</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowAllClearModal(true)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-colors shadow-lg"
+                >
+                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>All-Clear</span>
+                </button>
+              )}
             </>
+          ) : !isWardenAuthenticated ? (
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="w-full sm:w-auto px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
+              title="Microsoft 365 Designated Safety Warden sign-in required to declare evacuations"
+            >
+              <Lock className="w-4 h-4 text-amber-400" />
+              <span>Declare Evacuation (M365 Warden Login Required)</span>
+            </button>
           ) : (
             <button
               onClick={() => setShowDeclareModal(true)}
@@ -658,6 +685,24 @@ export function WardenDashboardView() {
                 </select>
               </div>
 
+              {/* Verified M365 Warden Badge */}
+              <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-200 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>Authenticated M365 Warden: <strong>{m365User?.name || declaredBy}</strong> ({m365User?.email})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeclareModal(false);
+                    setShowAuthModal(true);
+                  }}
+                  className="text-[11px] text-emerald-400 hover:underline font-bold"
+                >
+                  Switch
+                </button>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                   Incident Commander / Initiating Warden
@@ -865,6 +910,12 @@ export function WardenDashboardView() {
       <StaffManagerModal
         isOpen={showStaffModal}
         onClose={() => setShowStaffModal(false)}
+      />
+
+      {/* Microsoft 365 Entra ID Authentication Modal */}
+      <M365AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
       />
     </div>
   );

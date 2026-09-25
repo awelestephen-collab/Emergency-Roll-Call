@@ -16,13 +16,14 @@ export function createIncidentsRouter(io) {
     }
   });
 
-  // POST /api/incidents/declare - Start new emergency evacuation
+  // POST /api/incidents/declare - Start new emergency evacuation (M365 Warden Protected)
   router.post('/declare', (req, res) => {
     try {
-      const { type, declaredBy, notes, simulatedDrill, escalationThresholdSeconds } = req.body;
+      const { type, declaredBy, declaredByEmail, notes, simulatedDrill, escalationThresholdSeconds } = req.body;
       const summary = store.declareIncident({
         type: type || 'Fire Evacuation',
-        declaredBy: declaredBy || 'Safety Warden',
+        declaredBy: declaredBy || (declaredByEmail ? `Safety Warden (${declaredByEmail})` : 'Safety Warden'),
+        declaredByEmail: declaredByEmail || null,
         notes: notes || '',
         simulatedDrill: !!simulatedDrill,
         escalationThresholdSeconds: escalationThresholdSeconds || 300

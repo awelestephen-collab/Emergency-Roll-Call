@@ -9,6 +9,7 @@ import { NotificationBanner } from './components/NotificationBanner';
 import { NotificationModal } from './components/NotificationModal';
 import { SoundPermissionModal } from './components/SoundPermissionModal';
 import { soundSynthesizer } from './components/AudioAlarm';
+import { M365AuthModal } from './components/M365AuthModal';
 import {
   ShieldAlert,
   Users,
@@ -28,6 +29,7 @@ function AppContent() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showServerModal, setShowServerModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showM365Modal, setShowM365Modal] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -76,7 +78,9 @@ function AppContent() {
     declineSoundPermission,
     resetSoundPermission,
     unlockAudio,
-    toggleMute
+    toggleMute,
+    m365User,
+    isWardenAuthenticated
   } = useIncident();
 
   // Always request permission if it's not enabled already (do not enable by default)
@@ -206,6 +210,32 @@ function AppContent() {
               title="Lock-Screen Drill Notifications & Device Testing"
             >
               <Bell className="w-4 h-4" />
+            </button>
+
+            {/* Microsoft 365 Entra ID Authentication Button */}
+            <button
+              onClick={() => setShowM365Modal(true)}
+              className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-bold border transition-all cursor-pointer shadow-sm ${
+                isWardenAuthenticated
+                  ? 'bg-red-950/80 border-red-500/80 text-red-200 hover:bg-red-900'
+                  : m365User
+                  ? 'bg-blue-950/80 border-blue-500/80 text-blue-200 hover:bg-blue-900'
+                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-750'
+              }`}
+              title={m365User ? `Microsoft 365: ${m365User.name} (${m365User.isWarden ? 'Designated Safety Warden' : 'Staff'})` : 'Sign in with Microsoft 365'}
+            >
+              <div className="grid grid-cols-2 gap-0.5 w-3 h-3 flex-shrink-0">
+                <div className="bg-[#F25022] rounded-xs" />
+                <div className="bg-[#7FBA00] rounded-xs" />
+                <div className="bg-[#00A4EF] rounded-xs" />
+                <div className="bg-[#FFB900] rounded-xs" />
+              </div>
+              <span className="hidden sm:inline">
+                {m365User ? (isWardenAuthenticated ? `Warden: ${m365User.name.split(' ')[0]}` : m365User.name.split(' ')[0]) : 'M365 Sign-In'}
+              </span>
+              {isWardenAuthenticated && (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+              )}
             </button>
 
             {/* Install on Phone Button */}
@@ -375,6 +405,12 @@ function AppContent() {
       <NotificationModal
         isOpen={showNotificationModal}
         onClose={() => setShowNotificationModal(false)}
+      />
+
+      {/* MICROSOFT 365 ENTRA ID AUTHENTICATION MODAL */}
+      <M365AuthModal
+        isOpen={showM365Modal}
+        onClose={() => setShowM365Modal(false)}
       />
 
       {/* SOUND PERMISSION REQUEST MODAL (ALWAYS REQUEST IF NOT ENABLED ALREADY) */}
